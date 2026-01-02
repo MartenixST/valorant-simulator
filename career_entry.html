@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Career Mode - Start</title>
+  <link rel="stylesheet" href="css/variables.css">
+    <link rel="stylesheet" href="css/career.css">
+    <link rel="stylesheet" href="css/career_entry.css">
+</head>
+<body id="career-entry-page">
+  <div class="main-container">
+    <div class="content">
+      <!-- Career Start -->
+      <div id="career-start" class="content-section">
+        <h2>Career Mode</h2>
+        <p>Start your journey as a VCT team manager!</p>
+        <div class="entry-buttons">
+          <button id="newGameBtn">New Career</button>
+          <button id="loadGameBtn">Load Career</button>
+          <button id="backToMenuBtn">Back to Main Menu</button>
+        </div>
+      </div>
+
+      <!-- Load Game -->
+      <div id="load-game" class="hidden content-section">
+        <h2>Load Save</h2>
+        <ul id="saveList"></ul>
+        <button id="backToMenuLoadBtn">Back</button>
+      </div>
+
+      <!-- New Game -->
+      <div id="new-game" class="hidden content-section">
+        <h2>Create New Career</h2>
+        <label>Manager Name:</label><br>
+        <input type="text" id="managerName"><br>
+        <label>Select Team:</label><br>
+        <select id="teamPicker"></select><br>
+        <button id="startGameBtn">Start Journey</button>
+        <button id="backToMenuNewBtn">Back</button>
+      </div>
+    </div>
+  </div>
+  <script src="src/career_entry.js" type="module"></script>
+</body>
+</html>

@@ -1,0 +1,198 @@
+.back-button {
+  display: inline-block;
+  padding: 10px 15px;
+  margin-bottom: 20px;
+  background-color: #555;
+  color: white;
+  text-decoration: none;
+  border-radius: 5px;
+  transition: background-color 0.3s ease;
+}
+
+.back-button:hover {
+  background-color: #777;
+}
+
+/* Kickoff section styling */
+.kickoff-header {
+  margin-bottom: 20px;
+}
+
+.kickoff-header h2 {
+  margin-bottom: 5px;
+}
+
+#kickoffMeta {
+  color: #aaa;
+  font-size: 14px;
+  margin-bottom: 15px;
+}
+
+/* Double elimination bracket layout */
+.bracket-wrapper { display: flex; flex-direction: column; gap: 20px; align-items: center; }
+.bracket-section { width: 100%; max-width: 1200px; }
+.bracket-section > h3 { margin: 8px 0 8px 8px; color: #ddd; font-weight: 600; font-size: 16px; }
+.bracket-grid { display: flex; flex-direction: column; gap: 20px; align-items: flex-start; justify-content: flex-start; }
+
+/* Upper bracket has more space at top */
+#kickoffUpper { margin-bottom: 15px; }
+
+/* Lower bracket is offset to align with upper bracket dropdowns */
+#kickoffLower { margin-top: 15px; }
+
+/* Grand finals centered */
+#kickoffGrand { justify-content: center; margin-top: 10px; }
+#kickoffGrand .round { border: 1px solid #ff4655; }
+
+.round { background: #16181f; border: 1px solid #2a2a2a; border-radius: 6px; padding: 10px; min-width: 180px; max-width: 220px; }
+.round h4 { margin: 4px 0 8px 0; font-size: 14px; }
+.match { background: #0f1117; border: 1px solid #2a2a2a; border-radius: 4px; padding: 8px; margin-bottom: 15px; position: relative; }
+
+/* Add connecting lines between matches */
+.match::after { content: ''; position: absolute; right: -10px; top: 50%; width: 10px; height: 1px; background: #2a2a2a; }
+.round:last-child .match::after { display: none; }
+
+/* Adjust the bracket layout to match double elimination format */
+.bracket-section { margin-bottom: 20px; }
+
+/* Adjust the width of rounds to be consistent */
+.round { width: 200px; }
+
+/* Make the bracket more compact */
+.bracket-grid { gap: 20px; }
+
+/* Adjust the seeds list to be smaller */
+#kickoffUpper .round:first-child { width: 150px; }
+
+/* Add drop lines from upper to lower bracket */
+.drop-line { position: absolute; border-left: 1px solid #ff4655; z-index: 1; }
+
+/* Specific positioning for the drop lines */
+.drop-line-1 { top: 100%; left: 50%; height: 60px; }
+.drop-line-2 { top: 100%; left: 50%; height: 90px; }
+
+/* Add horizontal connectors for drop lines */
+.drop-line::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 15px;
+  height: 1px;
+  background: #ff4655;
+}
+
+/* Vertical connecting lines for matches */
+.match { position: relative; }
+
+/* Special styling for the grand final */
+#kickoffGrand .match { border: 1px solid #ff4655; }
+#kickoffGrand .match::before { display: none; }
+
+/* Connecting lines from upper to lower bracket */
+.bracket-section:first-child .round:nth-child(3) .match::before,
+.bracket-section:first-child .round:nth-child(4) .match::before {
+  content: '';
+  position: absolute;
+  left: -8px;
+  bottom: -15px;
+  width: 1px;
+  height: 15px;
+  background: #2a2a2a;
+}
+
+/* Adjust spacing for better visual alignment */
+#kickoffUpper .round:nth-child(2) .match { margin-top: 10px; margin-bottom: 20px; }
+#kickoffUpper .round:nth-child(3) .match { margin-top: 20px; margin-bottom: 40px; }
+#kickoffUpper .round:nth-child(4) .match { margin-top: 40px; }
+
+#kickoffLower .round:nth-child(1) .match { margin-top: 5px; margin-bottom: 15px; }
+#kickoffLower .round:nth-child(2) .match { margin-top: 15px; margin-bottom: 30px; }
+#kickoffLower .round:nth-child(3) .match { margin-top: 30px; margin-bottom: 60px; }
+#kickoffLower .round:nth-child(4) .match { margin-top: 60px; }
+
+/* Improved bracket structure */
+.bracket-wrapper { position: relative; }
+
+/* Connecting lines */
+.bracket-grid .round:not(:last-child) {
+  position: relative;
+}
+
+.bracket-grid .round:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: -5px;
+  width: 5px;
+  height: 100%;
+  background: transparent;
+  border-right: 1px solid #2a2a2a;
+}
+
+/* Match connectors */
+.match::before {
+  content: '';
+  position: absolute;
+  right: -5px;
+  top: 50%;
+  width: 5px;
+  height: 1px;
+  background: #2a2a2a;
+}
+
+/* Vertical connectors between matches */
+.round:not(:last-child) .match:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  right: -5px;
+  top: 50%;
+  width: 1px;
+  height: calc(100% + 20px);
+  background: #2a2a2a;
+}
+
+/* Special connector for grand finals */
+#kickoffGrand {
+  position: relative;
+}
+
+#kickoffGrand::before {
+  content: '';
+  position: absolute;
+  top: -15px;
+  left: 50%;
+  width: 1px;
+  height: 15px;
+  background: #2a2a2a;
+}
+
+.team-slot {
+  display: flex;
+  align-items: center;
+  background: #1b1d24;
+  border: 1px solid #2a2a2a;
+  border-radius: 3px;
+  padding: 4px 6px;
+  margin: 3px 0;
+  font-size: 12px;
+}
+
+.team-logo {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  margin-right: 8px;
+  object-fit: cover;
+  background-color: #2a2a2a; /* Fallback background */
+  box-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
+}
+
+/* Make buttons in matches smaller */
+.match button { padding: 2px 4px; font-size: 10px; margin: 1px; }
+
+/* Adjust controls container in matches */
+.match div { margin-top: 2px !important; }
+
+/* Make the content area scrollable to ensure everything fits */
+#kickoffBracket { overflow-x: auto; max-width: 100%; }

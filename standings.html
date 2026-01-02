@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>VCT Standings</title>
+  <link rel="stylesheet" href="css/variables.css">
+  <link rel="stylesheet" href="css/standings.css">
+  <script type="module" src="src/standings.js"></script>
+</head>
+<body>
+  <div class="standings-container">
+    <div class="standings-header">
+      <h2>VCT Standings</h2>
+      <div class="season-info">Season 1 | 2025</div>
+    </div>
+
+    <div class="region-tabs">
+      <button class="region-tab active" onclick="switchRegion('Americas')">Americas</button>
+      <button class="region-tab" onclick="switchRegion('EMEA')">EMEA</button>
+      <button class="region-tab" onclick="switchRegion('Pacific')">Pacific</button>
+      <button class="region-tab" onclick="switchRegion('China')">China</button>
+    </div>
+
+    <div class="standings-table-container">
+      <table class="standings-table">
+        <thead>
+          <tr>
+            <th class="rank-col">#</th>
+            <th>Team</th>
+            <th>W - L</th>
+            <th>Win %</th>
+            <th>Points</th>
+            <th>Streak</th>
+          </tr>
+        </thead>
+        <tbody id="standings-body">
+          <!-- Standings will be injected here -->
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    function switchRegion(region) {
+      // Update active tab
+      document.querySelectorAll('.region-tab').forEach(tab => {
+        tab.classList.remove('active');
+        if (tab.textContent === region) tab.classList.add('active');
+      });
+      
+      // Dispatch event for JS to re-render
+      window.dispatchEvent(new CustomEvent('regionChanged', { detail: { region } }));
+    }
+  </script>
+</body>
+</html>

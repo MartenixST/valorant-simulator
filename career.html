@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Career Mode</title>
+  <link rel="stylesheet" href="css/variables.css">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/career.css">
+  <link rel="stylesheet" href="css/career_layout.css">
+</head>
+<body>
+  <div id="root">
+    <div id="career-manage-team" class="content-section hidden">
+      <h2>Manage Team</h2>
+      <div id="team-roster"></div>
+    </div>
+
+    <!-- Player Edit Modal -->
+    <div id="player-edit-modal" class="modal">
+      <div class="modal-content">
+        <span class="close-button">&times;</span>
+        <h3>Edit Player Attributes</h3>
+        <form id="player-edit-form">
+          <input type="hidden" id="edit-player-id">
+          <label for="edit-player-name">Name:</label>
+          <input type="text" id="edit-player-name" disabled>
+          <label for="edit-player-gamertag">Gamertag:</label>
+          <input type="text" id="edit-player-gamertag">
+          <label for="edit-player-role">Role:</label>
+          <select id="edit-player-role">
+            <option value="Duelist">Duelist</option>
+            <option value="Initiator">Initiator</option>
+            <option value="Controller">Controller</option>
+            <option value="Sentinel">Sentinel</option>
+            <option value="Flex">Flex</option>
+          </select>
+          <label for="edit-player-nationality">Nationality:</label>
+          <input type="text" id="edit-player-nationality">
+          <label for="edit-player-age">Age:</label>
+          <input type="number" id="edit-player-age" min="16" max="30">
+          <label for="edit-player-skill">Skill:</label>
+          <input type="range" id="edit-player-skill" min="0" max="100">
+          <span id="edit-player-skill-value"></span>
+          <label for="edit-player-potential">Potential:</label>
+          <input type="range" id="edit-player-potential" min="0" max="100">
+          <span id="edit-player-potential-value"></span>
+          <button type="submit">Save Changes</button>
+        </form>
+      </div>
+    </div>
+
+    <div id="career-players" class="content-section hidden">
+      <h2>Players Hub</h2>
+      <div id="players-hub-content"></div>
+    </div>
+  </div>
+  <script type="module" src="src/main.jsx"></script>
+</body>
+</html>

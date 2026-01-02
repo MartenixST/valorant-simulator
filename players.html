@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>VCT Players Hub</title>
+  <link rel="stylesheet" href="css/variables.css">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/players.css">
+  <script src="src/career.js" type="module"></script>
+  <script src="src/players.js" defer type="module"></script>
+</head>
+<body>
+  <header>
+    <h2>VCT Players Hub</h2>
+  </header>
+  
+  <div class="container">
+    <div class="filters">
+      <select id="region-filter">
+        <option value="all">All Regions</option>
+        <option value="Americas">Americas</option>
+        <option value="EMEA">EMEA</option>
+        <option value="Pacific">Pacific</option>
+        <option value="China">China</option>
+      </select>
+      <select id="team-filter">
+        <option value="all">All Teams</option>
+        <!-- Teams will be populated dynamically -->
+      </select>
+      <select id="year-filter">
+        <option value="all">All Years</option>
+        <option value="2025">2025</option>
+        <!-- Add more years as needed -->
+      </select>
+      <select id="player-type-filter">
+        <option value="all">All Players</option>
+        <option value="starters">Starters</option>
+        <option value="substitutes">Substitutes</option>
+      </select>
+      <input type="text" id="player-search" placeholder="Search players...">
+    </div>
+    
+    <div id="players-container" class="players-grid">
+      <!-- Players will be populated dynamically -->
+    </div>
+  </div>
+  
+  <div id="player-details-modal" class="modal hidden">
+    <div class="modal-content">
+      <span class="close-button">&times;</span>
+      <div id="player-details">
+        <!-- Player details will be populated dynamically -->
+      </div>
+    </div>
+  </div>
+  
+  <div class="navigation">
+    <a href="index.html"><button>Back to Menu</button></a>
+  </div>
+
+  
+</body>
+</html>

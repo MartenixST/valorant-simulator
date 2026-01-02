@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Valorant Career Simulator</title>
+  <meta name="description" content="Manage a Valorant team, simulate matches, scout players, and build your legacy." />
+  <meta name="theme-color" content="#ff4655" />
+  <meta property="og:title" content="Valorant Career Simulator" />
+  <meta property="og:description" content="Build your team, simulate matches, and rise through the ranks." />
+  <meta property="og:type" content="website" />
+  <meta property="og:image" content="assets/valorant_background.jpg" />
+  <link rel="icon" href="assets/team_logos/sentinels.png" />
+  <link rel="preload" as="image" href="assets/valorant_background.jpg" />
+  <link rel="stylesheet" href="css/variables.css">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="site-header">
+    <h1 class="app-title">Valorant Career Simulator</h1>
+  </header>
+
+  <main id="main">
+    <section class="hero" aria-label="Introduction">
+      <div class="hero-overlay">
+        <h2 class="hero-title">Build Your Team. Chase Glory.</h2>
+        <p class="subtitle">Start a career, scrim in customs, scout players, and browse the wiki.</p>
+        <div class="hero-actions">
+          <a class="btn primary" href="career_entry.html">Start Career</a>
+          <a class="btn" href="customs.html">Scrim in Customs</a>
+        </div>
+      </div>
+    </section>
+
+    <section class="menu-grid" aria-labelledby="modes-heading">
+      <h2 id="modes-heading" class="sr-only">Game Modes</h2>
+      <a class="menu-card" href="career_entry.html">
+        <h3>Career Mode</h3>
+        <p>Manage roster, simulate weeks, rise through the standings.</p>
+      </a>
+      <a class="menu-card" href="customs.html">
+        <h3>Customs</h3>
+        <p>Quick matches for testing strategies and builds.</p>
+      </a>
+      <a class="menu-card" href="players.html">
+        <h3>Players Hub</h3>
+        <p>Scout free agents and sign prospects.</p>
+      </a>
+      <a class="menu-card" href="wiki.html">
+        <h3>Wiki</h3>
+        <p>Learn game systems, roles, and meta.</p>
+      </a>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <small>Alpha build — features subject to change.</small>
+  </footer>
+  <noscript>
+    <div class="card" role="alert">
+      JavaScript is required for interactive features. Please enable it to use the simulator.
+    </div>
+  </noscript>
+</body>
+</html>
