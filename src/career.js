@@ -1,5 +1,6 @@
 import { teams, teamLogos } from './teams.js';
-import { loadCareer, saveCareer } from './career_local_storage.jsx';
+import { loadCareer, saveCareer, getKickoffState } from './career_local_storage.jsx';
+import { renderKickoff } from './kickoff.jsx';
 import { initializeGameData } from './game_data.js';
 import { getTeamsWithPlayers } from './players.js';
 
@@ -77,98 +78,186 @@ const regions = {
 // This will be set when a team is selected
 let welcomeMsg = '';
 
-export function renderTeamRoster() {
+export function renderTeamRoster(providedSave = null) {
   const teamRosterContainer = document.getElementById('team-roster');
+  if (!teamRosterContainer) return;
   teamRosterContainer.innerHTML = ''; // Clear existing content
 
-  const activeSave = loadCareer();
+  const activeSave = providedSave || loadCareer();
   if (!activeSave) {
     teamRosterContainer.innerHTML = '<div class="roster-placeholder">Please start a career to manage your team.</div>';
     return;
   }
 
   const myTeam = activeSave.team;
-  const myTeamId = activeSave.teamId;
+  const myTeamId = activeSave.teamId ? String(activeSave.teamId) : null;
   
-  // Use players from the active save instead of the global getTeamsWithPlayers
-  const myTeamPlayers = activeSave.players.filter(p => p.teamId === myTeamId);
+  console.log("renderTeamRoster: myTeamId:", myTeamId, "myTeam:", myTeam);
+  console.log("renderTeamRoster: total players in save:", activeSave.players?.length || 0);
+  
+  if (activeSave.players && activeSave.players.length > 0) {
+    const firstPlayer = activeSave.players[0];
+    console.log("DEBUG: First player in save:", {
+      name: firstPlayer.name,
+      teamId: firstPlayer.teamId,
+      team: firstPlayer.team,
+      teamIdType: typeof firstPlayer.teamId
+    });
+    
+    // Check if ANY player has the user's teamId
+    const anyTeamMatch = activeSave.players.some(p => String(p.teamId) === String(myTeamId));
+    const anyNameMatch = activeSave.players.some(p => String(p.team) === String(myTeam));
+    console.log("DEBUG: anyTeamMatch:", anyTeamMatch, "anyNameMatch:", anyNameMatch);
+  }
+
+  if (!activeSave.players || !Array.isArray(activeSave.players)) {
+    teamRosterContainer.innerHTML = '<div class="roster-placeholder">No players found in your save file.</div>';
+    return;
+  }
+
+  // Use players from the active save
+  const myTeamPlayers = activeSave.players.filter(p => {
+    const normalize = (n) => String(n || '').toLowerCase().trim();
+    
+    // Normalize comparison: check teamId (if present) OR team name
+    const playerTeamId = p.teamId ? String(p.teamId) : null;
+    const playerTeamNameNorm = normalize(p.team);
+
+    const matchesId = myTeamId && playerTeamId && playerTeamId === myTeamId;
+    const matchesName = myTeam && playerTeamNameNorm && playerTeamNameNorm === normalize(myTeam);
+    const match = matchesId || matchesName;
+    
+    if (match) console.log("Found player for team:", p.name, "teamId:", p.teamId, "teamName:", p.team);
+    return match;
+  });
+  
+  console.log("renderTeamRoster: myTeamPlayers found:", myTeamPlayers.length);
+  
+  // Helper to get overall rating reliably from plain objects
+  const getOverall = (p) => {
+    if (p.overall) return p.overall;
+    if (p.rating) {
+      const r = p.rating;
+      const stats = [r.aim, r.movement, r.gameSense, r.clutch, r.aggression, r.utility, r.mental, r.teamwork, r.consistency];
+      const sum = stats.reduce((acc, val) => acc + (val || 50), 0);
+      return Math.round(sum / 9);
+    }
+    return p.skill || 0;
+  };
+
+  // Sort players by overall rating descending
+  myTeamPlayers.sort((a, b) => {
+    return getOverall(b) - getOverall(a);
+  });
   
   if (myTeamPlayers.length === 0) {
-    teamRosterContainer.innerHTML = '<div class="roster-placeholder">No players found for your team.</div>';
+    teamRosterContainer.innerHTML = '<div class="roster-placeholder">No players found for your team. Hire some in the Players Hub!</div>';
     return;
   }
 
   // Split into main roster and substitutes
+  // Main roster: top 5 by overall
+  // Substitutes: everyone else
   const mainRoster = myTeamPlayers.slice(0, 5);
-  const substitutes = myTeamPlayers.slice(5, 7); // Limit to 2 subs (total 7 players)
+  const substitutes = myTeamPlayers.slice(5);
 
-  const renderPlayerCard = (player, isSub = false) => {
-    const playerCard = document.createElement('div');
-    playerCard.className = `player-card ${isSub ? 'substitute-card' : ''}`;
+  function renderPlayerCard(player, isSub = false) {
+    const overall = getOverall(player);
+    const potential = player.potential || player.rating?.potential || 0;
     
-    // Use overall from the new player structure
-    const overall = player.overall || Math.round(player.skill) || 0;
-    const potential = player.potential || 0;
+    // Helper for rating colors
+    const getRatingClass = (val) => {
+        if (val >= 85) return 'rating-elite';
+        if (val >= 75) return 'rating-good';
+        if (val >= 65) return 'rating-average';
+        return 'rating-poor';
+    };
+
+    const playerCard = document.createElement('div');
+    playerCard.className = `player-card ${isSub ? 'substitute-card' : ''} ${getRatingClass(overall)}`;
+    
+    // Market value formatting
+    const marketValue = player.marketValue ? `$${player.marketValue.toLocaleString()}` : 'N/A';
     
     playerCard.innerHTML = `
-      <div class="player-card-header">
-        <div class="player-main-info">
-          <h4>${player.name} ${isSub ? '<span class="sub-tag">SUB</span>' : ''}</h4>
-          <div class="role-selector-container">
-            <select class="player-role-select" onchange="changePlayerRole('${player.id}', this.value)">
-              ${['Duelist', 'Initiator', 'Controller', 'Sentinel', 'Flex'].map(role => 
-                `<option value="${role}" ${player.role === role ? 'selected' : ''}>${role}</option>`
-              ).join('')}
-            </select>
+      <div class="player-card-inner">
+        <div class="player-card-header">
+          <div class="player-main-info">
+            <div class="player-name-row">
+              <h4>${player.name}</h4>
+              ${isSub ? '<span class="sub-tag">SUB</span>' : ''}
+            </div>
+            <div class="role-selector-container">
+              <select class="player-role-select" onchange="changePlayerRole('${player.id}', this.value)">
+                ${['Duelist', 'Initiator', 'Controller', 'Sentinel', 'Flex'].map(role => 
+                  `<option value="${role}" ${player.role === role ? 'selected' : ''}>${role}</option>`
+                ).join('')}
+              </select>
+            </div>
+          </div>
+          <div class="player-overall-container ${getRatingClass(overall)}">
+            <span class="overall-label">OVR</span>
+            <span class="overall-value">${overall}</span>
           </div>
         </div>
-        <div class="player-overall-circle">${overall}</div>
-      </div>
-      <div class="player-meta">
-        <span>${player.nationality}</span>
-        <span>•</span>
-        <span>Age: ${player.age}</span>
-      </div>
-      <div class="player-stats-grid">
-        <div class="stat-bar-container">
-          <div class="stat-label">
-            <span>Aim</span>
-            <span>${player.rating?.aim || 0}</span>
+
+        <div class="player-meta-info">
+          <span class="meta-item"><i class="flag-icon"></i> ${player.nationality || "Unknown"}</span>
+          <span class="meta-item">Age: ${player.age || "N/A"}</span>
+          <span class="meta-item value">Salary: ${marketValue}</span>
+        </div>
+
+        <div class="player-stats-detailed">
+          <div class="stats-column">
+            <div class="stat-row">
+              <span class="stat-name">Aim</span>
+              <span class="stat-val ${getRatingClass(player.rating?.aim || 0)}">${player.rating?.aim || 0}</span>
+            </div>
+            <div class="stat-row">
+              <span class="stat-name">Movement</span>
+              <span class="stat-val ${getRatingClass(player.rating?.movement || 0)}">${player.rating?.movement || 0}</span>
+            </div>
+            <div class="stat-row">
+              <span class="stat-name">Game Sense</span>
+              <span class="stat-val ${getRatingClass(player.rating?.gameSense || 0)}">${player.rating?.gameSense || 0}</span>
+            </div>
+            <div class="stat-row">
+              <span class="stat-name">Clutch</span>
+              <span class="stat-val ${getRatingClass(player.rating?.clutch || 0)}">${player.rating?.clutch || 0}</span>
+            </div>
+            <div class="stat-row">
+              <span class="stat-name">Aggression</span>
+              <span class="stat-val ${getRatingClass(player.rating?.aggression || 0)}">${player.rating?.aggression || 0}</span>
+            </div>
           </div>
-          <div class="stat-progress-bg">
-            <div class="stat-progress-fill" style="width: ${player.rating?.aim || 0}%"></div>
+          <div class="stats-column">
+            <div class="stat-row">
+              <span class="stat-name">Utility</span>
+              <span class="stat-val ${getRatingClass(player.rating?.utility || 0)}">${player.rating?.utility || 0}</span>
+            </div>
+            <div class="stat-row">
+              <span class="stat-name">Mental</span>
+              <span class="stat-val ${getRatingClass(player.rating?.mental || 0)}">${player.rating?.mental || 0}</span>
+            </div>
+            <div class="stat-row">
+              <span class="stat-name">Teamwork</span>
+              <span class="stat-val ${getRatingClass(player.rating?.teamwork || 0)}">${player.rating?.teamwork || 0}</span>
+            </div>
+            <div class="stat-row">
+              <span class="stat-name">Consistency</span>
+              <span class="stat-val ${getRatingClass(player.rating?.consistency || 0)}">${player.rating?.consistency || 0}</span>
+            </div>
+            <div class="stat-row potential-row">
+              <span class="stat-name">Potential</span>
+              <span class="stat-val ${getRatingClass(potential)}">${potential}</span>
+            </div>
           </div>
         </div>
-        <div class="stat-bar-container">
-          <div class="stat-label">
-            <span>Sense</span>
-            <span>${player.rating?.gameSense || 0}</span>
-          </div>
-          <div class="stat-progress-bg">
-            <div class="stat-progress-fill" style="width: ${player.rating?.gameSense || 0}%"></div>
-          </div>
+
+        <div class="player-actions">
+          <button class="btn-release" onclick="releasePlayer('${player.id}')">Release Player</button>
+          <button class="btn-edit" onclick="editPlayerAttributes('${player.id}')">Edit</button>
         </div>
-        <div class="stat-bar-container">
-          <div class="stat-label">
-            <span>Utility</span>
-            <span>${player.rating?.utility || 0}</span>
-          </div>
-          <div class="stat-progress-bg">
-            <div class="stat-progress-fill" style="width: ${player.rating?.utility || 0}%"></div>
-          </div>
-        </div>
-        <div class="stat-bar-container">
-          <div class="stat-label">
-            <span>Potential</span>
-            <span>${potential}</span>
-          </div>
-          <div class="stat-progress-bg">
-            <div class="stat-progress-fill potential" style="width: ${potential}%"></div>
-          </div>
-        </div>
-      </div>
-      <div class="player-actions" style="margin-top: 15px; display: flex; gap: 10px;">
-        <button class="btn-release" onclick="releasePlayer('${player.id}')" style="flex: 1; background: #ff4655; color: white; padding: 8px; font-family: 'Valorant', sans-serif; border: none; cursor: pointer; text-transform: uppercase; font-size: 11px; font-weight: bold;">Release</button>
       </div>
     `;
     return playerCard;
@@ -217,16 +306,16 @@ export function renderTeamRoster() {
         player.rating.gameSense = Math.max(0, player.rating.gameSense - penalty);
         player.rating.utility = Math.max(0, player.rating.utility - penalty);
         
-        // Update skill and overall
+        // Update skill for compatibility
         player.skill = Math.max(0, (player.skill || 0) - penalty);
-        if (player.overall) {
-          player.overall = Math.max(0, player.overall - penalty);
-        }
+        
+        // Recalculate overall
+        const stats = [player.rating.aim, player.rating.movement, player.rating.gameSense, player.rating.clutch, player.rating.aggression, player.rating.utility, player.rating.mental, player.rating.teamwork, player.rating.consistency];
+        const sum = stats.reduce((acc, val) => acc + (val || 50), 0);
+        player.overall = Math.round(sum / 9);
       } else {
         player.skill = Math.max(0, (player.skill || 0) - penalty);
-        if (player.overall) {
-          player.overall = Math.max(0, player.overall - penalty);
-        }
+        player.overall = player.skill;
       }
       
       saveCareer(activeSave);
@@ -241,13 +330,17 @@ export function renderTeamRoster() {
 
   // Function to handle releasing a player
   window.releasePlayer = function(playerId) {
-    if (confirm('Are you sure you want to release this player?')) {
+    if (confirm('Are you sure you want to release this player? They will become a free agent.')) {
       const activeSave = loadCareer();
       if (activeSave) {
-        activeSave.players = activeSave.players.filter(p => p.id !== playerId);
-        saveCareer(activeSave); // Save the updated career data
-        console.log(`Player ${playerId} released.`);
-        renderTeamRoster(); // Re-render the roster to reflect the change
+        const player = activeSave.players.find(p => p.id === playerId);
+        if (player) {
+          player.teamId = null;
+          player.team = null;
+          saveCareer(activeSave); // Save the updated career data
+          console.log(`Player ${player.name} released to free agency.`);
+          renderTeamRoster(); // Re-render to update the view
+        }
       }
     }
   };
@@ -257,13 +350,7 @@ export function renderTeamRoster() {
     const activeSave = loadCareer();
     if (!activeSave) return;
 
-    const myTeam = activeSave.team;
-    const teamsWithPlayers = getTeamsWithPlayers();
-    const myTeamData = teamsWithPlayers.find(team => team.name === myTeam);
-
-    if (!myTeamData || !myTeamData.players) return;
-
-    const playerToEdit = myTeamData.players.find(player => player.id === playerId);
+    const playerToEdit = activeSave.players.find(player => player.id === playerId);
     if (!playerToEdit) return;
 
     // Populate the modal with player data
@@ -281,36 +368,45 @@ export function renderTeamRoster() {
       if (el) el.value = value;
     }
     
-    // Handle new ratings structure or fallback to old skill
-    const skillValue = playerToEdit.overall || playerToEdit.skill || 0;
-    const potentialValue = playerToEdit.potential || 0;
-    
-    const skillEl = document.getElementById('edit-player-skill');
-    if (skillEl) skillEl.value = skillValue;
-    
-    const skillValEl = document.getElementById('edit-player-skill-value');
-    if (skillValEl) skillValEl.textContent = Math.round(skillValue);
-    
-    const potentialEl = document.getElementById('edit-player-potential');
-    if (potentialEl) potentialEl.value = potentialValue;
-    
-    const potentialValEl = document.getElementById('edit-player-potential-value');
-    if (potentialValEl) potentialValEl.textContent = Math.round(potentialValue);
+    // Populate individual ratings
+    const ratings = playerToEdit.rating || {
+      aim: playerToEdit.skill || 50,
+      movement: playerToEdit.skill || 50,
+      gameSense: playerToEdit.skill || 50,
+      clutch: playerToEdit.skill || 50,
+      aggression: playerToEdit.skill || 50,
+      utility: playerToEdit.skill || 50,
+      mental: playerToEdit.skill || 50,
+      teamwork: playerToEdit.skill || 50,
+      consistency: playerToEdit.skill || 50,
+      potential: playerToEdit.potential || 70
+    };
+
+    const ratingFields = [
+      'aim', 'movement', 'gamesense', 'clutch', 'aggression', 
+      'utility', 'mental', 'teamwork', 'consistency', 'potential'
+    ];
+
+    ratingFields.forEach(field => {
+      const ratingKey = field === 'gamesense' ? 'gameSense' : field;
+      const val = ratings[ratingKey] || 50;
+      const inputEl = document.getElementById(`edit-player-${field}`);
+      const valEl = document.getElementById(`edit-player-${field}-value`);
+      
+      if (inputEl) inputEl.value = val;
+      if (valEl) valEl.textContent = Math.round(val);
+    });
 
     // Display the modal
     const modal = document.getElementById('player-edit-modal');
     if (modal) modal.style.display = 'block';
   };
 
-  // Event listener for skill and potential range inputs to update their values
+  // Event listener for rating range inputs to update their values
   document.addEventListener('input', function (event) {
-    if (event.target.id === 'edit-player-skill') {
-      const el = document.getElementById('edit-player-skill-value');
-      if (el) el.textContent = event.target.value;
-    }
-    if (event.target.id === 'edit-player-potential') {
-      const el = document.getElementById('edit-player-potential-value');
-      if (el) el.textContent = event.target.value;
+    if (event.target.id && event.target.id.startsWith('edit-player-')) {
+      const valEl = document.getElementById(`${event.target.id}-value`);
+      if (valEl) valEl.textContent = event.target.value;
     }
   });
 
@@ -336,50 +432,56 @@ export function renderTeamRoster() {
       const activeSave = loadCareer();
       if (!activeSave) return;
 
-      const myTeam = activeSave.team;
-      const teamsWithPlayers = getTeamsWithPlayers();
-      const myTeamData = teamsWithPlayers.find(team => team.name === myTeam);
-
-      if (!myTeamData || !myTeamData.players) return;
-
-      const playerIndex = myTeamData.players.findIndex(player => player.id === playerId);
+      const playerIndex = activeSave.players.findIndex(player => player.id === playerId);
       if (playerIndex === -1) return;
 
       // Update player attributes from the form
-      const player = myTeamData.players[playerIndex];
+      const player = activeSave.players[playerIndex];
       
       const gamertagEl = document.getElementById('edit-player-gamertag');
-      if (gamertagEl) player.gamertag = gamertagEl.value;
+      if (gamertagEl) {
+        player.gamertag = gamertagEl.value;
+        player.name = gamertagEl.value; // Keep name in sync
+      }
       
       const roleEl = document.getElementById('edit-player-role');
       if (roleEl) player.role = roleEl.value;
       
       const natEl = document.getElementById('edit-player-nationality');
-      if (natEl) player.nationality = natEl.value;
+      if (natEl && natEl.value.trim() !== "") {
+          player.nationality = natEl.value.trim();
+      }
       
       const ageEl = document.getElementById('edit-player-age');
       if (ageEl) player.age = parseInt(ageEl.value);
       
-      const skillEl = document.getElementById('edit-player-skill');
-      const potEl = document.getElementById('edit-player-potential');
-      
-      const newSkill = skillEl ? parseInt(skillEl.value) : 0;
-      const newPotential = potEl ? parseInt(potEl.value) : 0;
-      
-      // Update ratings if they exist
-      if (player.rating) {
-          // If editing overall skill, we distribute it across main ratings
-          player.rating.aim = newSkill;
-          player.rating.gameSense = newSkill;
-          player.rating.utility = newSkill;
-          player.rating.potential = newPotential;
-      } else {
-          player.skill = newSkill;
-          player.potential = newPotential;
+      // Update individual ratings
+      if (!player.rating) {
+        player.rating = {};
       }
 
-      // Update the activeSave object with the modified players list
-      activeSave.players = teamsWithPlayers.flatMap(team => team.players);
+      const ratingFields = [
+        'aim', 'movement', 'gamesense', 'clutch', 'aggression', 
+        'utility', 'mental', 'teamwork', 'consistency', 'potential'
+      ];
+
+      ratingFields.forEach(field => {
+        const inputEl = document.getElementById(`edit-player-${field}`);
+        if (inputEl) {
+          const ratingKey = field === 'gamesense' ? 'gameSense' : field;
+          player.rating[ratingKey] = parseInt(inputEl.value);
+        }
+      });
+
+      // Update skill/potential for legacy compatibility
+      player.skill = player.rating.aim; // Use aim as representative skill
+      player.potential = player.rating.potential;
+      
+      // Re-calculate overall
+      const stats = [player.rating.aim, player.rating.movement, player.rating.gameSense, player.rating.clutch, player.rating.aggression, player.rating.utility, player.rating.mental, player.rating.teamwork, player.rating.consistency];
+      const sum = stats.reduce((acc, val) => acc + (val || 50), 0);
+      player.overall = Math.round(sum / 9);
+
       saveCareer(activeSave);
 
       // Close the modal and refresh the UI
@@ -688,8 +790,8 @@ function handleSimWeekClick() {
       renderOffseason();
       renderStandings();
       renderBracket();
-      const storedState = localStorage.getItem("valorantKickoffState");
-      const st = storedState ? JSON.parse(storedState) : { series: {} };
+      const activeSaveId = localStorage.getItem('activeSaveId');
+      const st = getKickoffState(activeSaveId);
       renderKickoff(st);
 
       // Hide loading screen

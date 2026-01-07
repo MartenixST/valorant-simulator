@@ -11,9 +11,46 @@ const CareerContent = ({ activeSection, activeSave, setActiveSave }) => {
   const [selectedMessage, setSelectedMessage] = useState(null);
 
   // Get current team info
-  const teamInfo = activeSave ? (teams.find(t => t.id === activeSave.teamId) || { power: 0, potential: 0 }) : { power: 0, potential: 0 };
+  const teamInfo = activeSave ? (teams.find(t => String(t.id) === String(activeSave.teamId)) || { power: 0, potential: 0 }) : { power: 0, potential: 0 };
 
-  const myPlayers = activeSave?.players?.filter(p => p.teamId === activeSave.teamId) || [];
+  const myPlayers = activeSave?.players?.filter(p => {
+    const normalize = (n) => String(n || '').toLowerCase().trim();
+    
+    const activeTeamId = activeSave.teamId ? String(activeSave.teamId) : null;
+    const activeTeamNameNorm = normalize(activeSave.team);
+    
+    const playerTeamId = p.teamId ? String(p.teamId) : null;
+    const playerTeamNameNorm = normalize(p.team);
+
+    const matchesId = activeTeamId && playerTeamId && playerTeamId === activeTeamId;
+    const matchesName = activeTeamNameNorm && playerTeamNameNorm && playerTeamNameNorm === activeTeamNameNorm;
+    
+    return matchesId || matchesName;
+  }) || [];
+  
+  if (activeSave) {
+    console.log("CareerContent: activeSave.teamId:", activeSave.teamId, "name:", activeSave.team);
+    console.log("CareerContent: myPlayers count:", myPlayers.length, "Total players:", activeSave.players?.length);
+    if (myPlayers.length === 0 && activeSave.players?.length > 0) {
+        const p0 = activeSave.players[0];
+        console.warn("No players matched! Sample player:", {
+            name: p0.name,
+            teamId: p0.teamId,
+            team: p0.team,
+            teamIdType: typeof p0.teamId,
+            activeTeamId: activeSave.teamId,
+            activeTeamName: activeSave.team
+        });
+        
+        // Count players per team for debugging
+         const teamCounts = {};
+         activeSave.players.forEach(p => {
+             const tid = (p.teamId && p.teamId !== 'null' && p.teamId !== 'undefined') ? p.teamId : 'Free Agent';
+             teamCounts[tid] = (teamCounts[tid] || 0) + 1;
+         });
+         console.log("Team distribution in save:", teamCounts);
+    }
+  }
   const playerCount = myPlayers.length;
 
   useEffect(() => {
@@ -24,7 +61,7 @@ const CareerContent = ({ activeSection, activeSave, setActiveSave }) => {
     if (activeSection === 'career-manage-team' && activeSave) {
       // Use a small timeout to ensure the DOM element is rendered
       setTimeout(() => {
-        renderTeamRoster();
+        renderTeamRoster(activeSave);
       }, 0);
     }
 
@@ -32,7 +69,9 @@ const CareerContent = ({ activeSection, activeSave, setActiveSave }) => {
     if (activeSection === 'kickoff') {
       const iframe = document.getElementById('kickoff-iframe');
       if (iframe && iframe.contentWindow) {
-        iframe.contentWindow.postMessage('rerenderKickoff', '*'); // Use targetOrigin for security in production
+        // Use window.location.origin instead of '*' for better security and to potentially 
+        // avoid triggering some extension listeners that ignore specific-origin messages
+        iframe.contentWindow.postMessage('rerenderKickoff', window.location.origin);
       }
     }
   }, [activeSave, activeSection]);
@@ -110,8 +149,22 @@ const CareerContent = ({ activeSection, activeSave, setActiveSave }) => {
 
       {activeSection === 'career-manage-team' && (
         <div id="career-manage-team" className="content-section full-width">
-          <div className="section-header">
-            <h2>Manage Team</h2>
+          <div className="team-management-header">
+            <div className="team-branding">
+              {activeSave && teamLogos[activeSave.team] && (
+                <img src={teamLogos[activeSave.team]} alt={activeSave.team} className="team-header-logo" />
+              )}
+              <div className="team-name-info">
+                <h2>Manage Team</h2>
+                <div className="team-name-tag">{activeSave?.team || 'No Team Selected'}</div>
+              </div>
+            </div>
+            <div className="season-info-and-button">
+              <div className="season-info">
+                Week {activeSave?.week || 1} / {activeSave?.offseason?.phase === 'offseason' ? 'Offseason' : 'Kickoff'} / Season {activeSave?.season || 1}
+              </div>
+              <SimWeekButton activeSave={activeSave} setActiveSave={setActiveSave} />
+            </div>
           </div>
           
           <div className="team-management-layout">
@@ -298,8 +351,19 @@ const CareerContent = ({ activeSection, activeSave, setActiveSave }) => {
       )}
 
       {activeSection === 'kickoff' && (
-        <div id="kickoff-section" className="content-section">
-          <iframe id="kickoff-iframe" src="kickoff.html" style={{ width: '100%', height: '800px', border: 'none' }} title="Kickoff Bracket"></iframe>
+        <div id="kickoff-section" className="content-section" style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          <iframe 
+            id="kickoff-iframe" 
+            src="kickoff.html" 
+            style={{ 
+              width: '100%', 
+              height: '100%', 
+              minHeight: '800px',
+              border: 'none',
+              overflow: 'hidden'
+            }} 
+            title="Kickoff Bracket"
+          ></iframe>
         </div>
       )}
     </div>

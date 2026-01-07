@@ -40,6 +40,34 @@
     </div>
   </div>
 
+  <!-- Roster Modal -->
+  <div id="roster-modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div class="team-info-header">
+          <img id="modal-team-logo" src="" alt="" class="modal-team-logo">
+          <h2 id="modal-team-name">Team Name</h2>
+        </div>
+        <span class="close-modal">&times;</span>
+      </div>
+      <div class="modal-body">
+        <table class="roster-table">
+          <thead>
+            <tr>
+              <th>Player</th>
+              <th>Role</th>
+              <th>Rating</th>
+              <th>Nationality</th>
+            </tr>
+          </thead>
+          <tbody id="roster-body">
+            <!-- Roster will be injected here -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
   <script>
     function switchRegion(region) {
       // Update active tab

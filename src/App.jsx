@@ -31,6 +31,19 @@ function App() {
     }
   }, [activeSave]);
 
+  // Final safety save on window unload/reload
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (activeSave) {
+        // We can't use await here, but saveCareer already does 
+        // synchronous localStorage.setItem before the fetch
+        saveCareer(activeSave);
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [activeSave]);
+
   const handleNavClick = (section) => {
     setActiveSection(section);
   };

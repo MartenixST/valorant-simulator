@@ -1,4 +1,4 @@
-import { loadCareer } from './career_local_storage.jsx';
+import { loadCareer, getSafeTeamByName } from './career_local_storage.jsx';
 import { teamLogos } from './teams.js';
 
 export const standings = {
@@ -26,8 +26,8 @@ export function getActiveSave() {
   try {
     const id = localStorage.getItem('activeSaveId');
     if (!id) return null;
-    const saves = JSON.parse(localStorage.getItem('careerSaves')) || [];
-    return saves.find(s => String(s.id) === String(id)) || null;
+    const localSave = localStorage.getItem(`save_${id}`);
+    return localSave ? JSON.parse(localSave) : null;
   } catch (e) {
     return null;
   }
@@ -35,11 +35,8 @@ export function getActiveSave() {
 
 function updateActiveSave(updatedSave) {
   try {
-    const saves = JSON.parse(localStorage.getItem('careerSaves')) || [];
-    const idx = saves.findIndex(s => String(s.id) === String(updatedSave.id));
-    if (idx !== -1) {
-      saves[idx] = updatedSave;
-      localStorage.setItem('careerSaves', JSON.stringify(saves));
+    if (updatedSave && updatedSave.id) {
+      localStorage.setItem(`save_${updatedSave.id}`, JSON.stringify(updatedSave));
     }
   } catch (e) {}
 }
@@ -152,8 +149,76 @@ export function renderStandings() {
       <td class="streak-col"><span class="streak-win">W1</span></td>
     `;
 
+    row.addEventListener('click', () => showTeamRoster(team.name));
     standingsBody.appendChild(row);
   });
+}
+
+function showTeamRoster(teamName) {
+  const teamData = getSafeTeamByName(teamName);
+  const modal = document.getElementById('roster-modal');
+  const modalTeamName = document.getElementById('modal-team-name');
+  const modalTeamLogo = document.getElementById('modal-team-logo');
+  const rosterBody = document.getElementById('roster-body');
+
+  if (!teamData || !modal || !rosterBody) return;
+
+  modalTeamName.textContent = teamData.name;
+  modalTeamLogo.src = teamLogos[teamData.name] || 'assets/team_logos/default.png';
+  rosterBody.innerHTML = '';
+
+  const players = teamData.players || [];
+  players.forEach(player => {
+    // Recalculate OVR from ratings if it's missing or defaulted to 50
+    let ovr = player.overall;
+    if (!ovr || ovr === 50) {
+      if (player.rating) {
+        // If player.rating is an object, sum its properties
+        if (typeof player.rating === 'object') {
+          const stats = [
+            player.rating.aim, player.rating.movement, player.rating.gameSense,
+            player.rating.clutch, player.rating.aggression, player.rating.utility,
+            player.rating.mental, player.rating.teamwork, player.rating.consistency
+          ];
+          const sum = stats.reduce((acc, curr) => acc + (Number(curr) || 50), 0);
+          ovr = Math.round(sum / 9);
+        } else if (typeof player.rating === 'number') {
+          ovr = player.rating;
+        }
+      }
+      
+      if (!ovr || ovr < 50) ovr = 50; // Final safety fallback
+    }
+
+    const getRatingClass = (val) => {
+      if (val >= 85) return 'rating-elite';
+      if (val >= 75) return 'rating-good';
+      if (val >= 65) return 'rating-average';
+      return 'rating-poor';
+    };
+
+    const row = document.createElement('tr');
+    row.innerHTML = `
+      <td>${player.name}</td>
+      <td><span class="role-tag">${player.role}</span></td>
+      <td><span class="rating-value ${getRatingClass(ovr)}">${ovr}</span></td>
+      <td>${player.nationality || 'Unknown'}</td>
+    `;
+    rosterBody.appendChild(row);
+  });
+
+  modal.style.display = 'block';
+
+  // Close modal when clicking X
+  const closeBtn = modal.querySelector('.close-modal');
+  closeBtn.onclick = () => modal.style.display = 'none';
+
+  // Close modal when clicking outside
+  window.onclick = (event) => {
+    if (event.target === modal) {
+      modal.style.display = 'none';
+    }
+  };
 }
 
 // Handle region switching

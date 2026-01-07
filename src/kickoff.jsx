@@ -1,8 +1,18 @@
-import { teams, getTeamByName } from './teams.js';
-import { loadCareer, getKickoffState, saveKickoffState } from "./career_local_storage.jsx";
+import { teams } from './teams.js';
+import { loadCareer, getKickoffState, saveKickoffState, getSafeTeamByName } from "./career_local_storage.jsx";
 import { getTeamsWithPlayers } from './players.js';
 
 const championTeams = ["LOUD", "Fnatic", "Edward Gaming", "Paper Rex"];
+
+const mapPool = [
+  'Abyss',
+  'Bind',
+  'Corrode',
+  'Haven',
+  'Pearl',
+  'Split',
+  'Sunset',
+];
 
 let dataU = {
   playerTeam: "TBD"
@@ -100,24 +110,201 @@ function createMatchBox(team1, team2, winner, playerTeam, id, bestOf, isGrandFin
   // }
 
   // Add Simulate and Play buttons
+  const isLocked = actualTeam1Name === 'TBD' || actualTeam2Name === 'TBD';
+  const hasFinished = score !== null;
+
   const simulateButton = document.createElement('button');
   simulateButton.textContent = 'Simulate';
   simulateButton.className = 'simulate-button';
+  if (isLocked || hasFinished) simulateButton.disabled = true;
   simulateButton.onclick = function() { kickoffWatchSeries(id, actualTeam1Name, actualTeam2Name, bestOf, isGrandFinal); };
   box.appendChild(simulateButton);
 
   const playButton = document.createElement('button');
   playButton.textContent = 'Play';
   playButton.className = 'play-button';
+  if (isLocked || hasFinished) playButton.disabled = true;
   playButton.onclick = function() {
     const formattedTeam1Name = actualTeam1Name.toLowerCase().replace(/ /g, '_');
     const formattedTeam2Name = actualTeam2Name.toLowerCase().replace(/ /g, '_');
 
-    window.location.href = `match_simulation.html?team1=${encodeURIComponent(formattedTeam1Name)}&team2=${encodeURIComponent(formattedTeam2Name)}&matchId=${encodeURIComponent(id)}&bestOf=${bestOf}`;
+    window.location.href = `match_simulation.html?team1=${encodeURIComponent(formattedTeam1Name)}&team2=${encodeURIComponent(formattedTeam2Name)}&matchId=${encodeURIComponent(id)}&bestOf=${bestOf}&playerTeam=${encodeURIComponent(playerTeam)}`;
   };
   box.appendChild(playButton);
 
+  // Add Stats button if result exists
+  if (score !== null) {
+      const statsButton = document.createElement('button');
+      statsButton.textContent = 'Stats';
+      statsButton.className = 'stats-button';
+      statsButton.onclick = function() {
+          showMatchStats(id);
+      };
+      box.appendChild(statsButton);
+  }
+
   return box;
+}
+
+function showMatchStats(matchId) {
+    const activeSaveId = localStorage.getItem('activeSaveId');
+    const st = getKickoffState(activeSaveId);
+    const matchData = st.series[matchId];
+    
+    if (!matchData || !matchData.playerStats) {
+        alert("No stats available for this match.");
+        return;
+    }
+
+    const modal = document.createElement('div');
+    modal.className = 'stats-modal';
+    
+    const content = document.createElement('div');
+    content.className = 'stats-modal-content';
+    
+    const header = document.createElement('div');
+    header.className = 'stats-modal-header';
+    header.innerHTML = `
+        <div class="stats-header-top">
+            <h2>Match Statistics</h2>
+            <button class="close-stats">&times;</button>
+        </div>
+        <div class="match-summary-banner">
+            <div class="summary-team">
+                <span class="team-name">${matchData.team1Name}</span>
+                <span class="team-score">${matchData.team1Score}</span>
+            </div>
+            <div class="summary-vs">VS</div>
+            <div class="summary-team">
+                <span class="team-score">${matchData.team2Score}</span>
+                <span class="team-name">${matchData.team2Name}</span>
+            </div>
+        </div>
+        <div class="stats-tabs">
+            <button class="tab-btn active" data-tab="all">All Maps</button>
+            ${matchData.mapResults ? matchData.mapResults.map((m, idx) => `
+                <button class="tab-btn" data-tab="map-${idx}">${m.mapName}</button>
+            `).join('') : ''}
+        </div>
+    `;
+    content.appendChild(header);
+
+    const statsContainer = document.createElement('div');
+    statsContainer.className = 'stats-container';
+    
+    const renderTeamStats = (teamName, teamId, players, rounds = 24) => {
+        const teamHeader = document.createElement('div');
+        teamHeader.className = 'team-stats-header';
+        
+        // Try to get team logo
+        const normalizedName = teamName.toLowerCase().replace(/ /g, '_');
+        const logoSrc = `assets/team_logos/${normalizedName}.png`;
+        
+        teamHeader.innerHTML = `
+            <div class="team-header-content">
+                <img src="${logoSrc}" class="team-logo-small" onerror="this.src='assets/team_logos/default.png'">
+                <h3>${teamName}</h3>
+            </div>
+        `;
+        statsContainer.appendChild(teamHeader);
+
+        const statsTable = document.createElement('table');
+        statsTable.className = 'stats-table';
+        statsTable.innerHTML = `
+            <thead>
+                <tr>
+                    <th>Player</th>
+                    <th class="text-center">K</th>
+                    <th class="text-center">D</th>
+                    <th class="text-center">A</th>
+                    <th class="text-center">HS%</th>
+                    <th class="text-center">ADR</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${players.sort((a, b) => b.kills - a.kills).map(p => {
+                    const hsPercent = p.kills > 0 ? Math.round((p.hs / p.kills) * 100) : 0;
+                    return `
+                        <tr>
+                            <td class="player-name-cell">${p.name}</td>
+                            <td class="stat-k text-center">${p.kills}</td>
+                            <td class="stat-d text-center">${p.deaths}</td>
+                            <td class="stat-a text-center">${p.assists}</td>
+                            <td class="stat-hs text-center">${hsPercent}%</td>
+                            <td class="stat-adr text-center">${Math.round(p.damage / rounds)}</td>
+                        </tr>
+                    `;
+                }).join('')}
+            </tbody>
+        `;
+        statsContainer.appendChild(statsTable);
+    };
+
+    const updateStatsDisplay = (tab) => {
+        statsContainer.innerHTML = '';
+        let statsToShow = matchData.playerStats;
+        let rounds = 0;
+        
+        if (tab === 'all') {
+            // For all maps, sum up rounds from all mapResults
+            if (matchData.mapResults && matchData.mapResults.length > 0) {
+                matchData.mapResults.forEach(m => {
+                    const scores = m.score.split('-');
+                    rounds += parseInt(scores[0]) + parseInt(scores[1]);
+                });
+            } else {
+                // If mapResults is empty (shouldn't happen for finished matches), estimate
+                rounds = 24; 
+            }
+        } else {
+            const mapIndex = parseInt(tab.split('-')[1]);
+            if (matchData.mapResults && matchData.mapResults[mapIndex]) {
+                const mapData = matchData.mapResults[mapIndex];
+                statsToShow = mapData.playerStats;
+                const scores = mapData.score.split('-');
+                rounds = parseInt(scores[0]) + parseInt(scores[1]);
+            }
+        }
+
+        if (rounds === 0) rounds = 24;
+
+        // Ensure we have arrays of players
+        const allPlayers = Object.values(statsToShow);
+        const team1Players = allPlayers.filter(p => p.teamName === matchData.team1Name || p.teamId === matchData.team1Id);
+        const team2Players = allPlayers.filter(p => p.teamName === matchData.team2Name || p.teamId === matchData.team2Id);
+
+        if (team1Players.length > 0) {
+            renderTeamStats(matchData.team1Name, matchData.team1Id, team1Players, rounds);
+        }
+        
+        if (team2Players.length > 0) {
+            renderTeamStats(matchData.team2Name, matchData.team2Id, team2Players, rounds);
+        }
+
+        // Fallback if filtering failed
+        if (team1Players.length === 0 && team2Players.length === 0 && allPlayers.length > 0) {
+            renderTeamStats("Players", null, allPlayers, rounds);
+        }
+    };
+
+    content.appendChild(statsContainer);
+    modal.appendChild(content);
+    document.body.appendChild(modal);
+    
+    // Initial display
+    updateStatsDisplay('all');
+
+    // Tab switching
+    modal.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.onclick = () => {
+            modal.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            updateStatsDisplay(btn.dataset.tab);
+        };
+    });
+
+    modal.querySelector('.close-stats').onclick = () => modal.remove();
+    modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
 }
 
 // New function to create a team element with player info
@@ -130,7 +317,7 @@ function createTeamElement(team, playerTeam, score = null) {
 
   if (typeof team === 'string') {
     // If team is a string, try to get the team object
-    const teamObject = getTeamByName(team);
+    const teamObject = getSafeTeamByName(team);
     if (teamObject) {
       teamName = teamObject.name;
       normalizedTeamName = teamObject.name.toLowerCase().replace(/ /g, '_');
@@ -363,6 +550,11 @@ function renderKickoffLower(st) {
     lowerBracketEl.appendChild(createRound('LB Round 3', st.lbRound3, st, playerTeam));
   }
 
+  // Lower Bracket Round 4
+  if (st.lbRound4) {
+    lowerBracketEl.appendChild(createRound('LB Semi-Final', st.lbRound4, st, playerTeam));
+  }
+
   // Lower Bracket Final
   if (st.lbFinal) {
     lowerBracketEl.appendChild(createRound('LB Final', st.lbFinal, st, playerTeam));
@@ -373,10 +565,11 @@ function renderKickoffLower(st) {
 export function renderKickoff(st) {
   try {
     const activeSave = loadCareer();
+    const activeSaveId = localStorage.getItem('activeSaveId');
     const playerTeam = activeSave ? activeSave.team : 'TBD';
 
     // If no series data exists, or if a new bracket needs to be generated, initialize the bracket
-    if (!st.series || Object.keys(st.series).length === 0 || st.dirty || !st.playInRound1 || st.playInRound1.length === 0 || !st.ubRound1 || st.ubRound1.length === 0) {
+    if (!st || st.dirty || !st.playInRound1 || st.playInRound1.length === 0 || !st.ubRound1 || st.ubRound1.length === 0 || !st.lbRound4 || st.lbRound4.length === 0) {
       console.log('Initializing new bracket with byes...');
       let initialUsedTeams = []; // Start with an empty array of used teams
 
@@ -431,6 +624,10 @@ export function renderKickoff(st) {
         { id: 'K-LB3-M2', team1: '', team2: '', winner: null, bestOf: 3, isGrandFinal: false },
       ];
 
+      st.lbRound4 = [
+        { id: 'K-LB4-M1', team1: '', team2: '', winner: null, bestOf: 3, isGrandFinal: false },
+      ];
+
       st.lbFinal = [
         { id: 'K-LBF', team1: '', team2: '', winner: null, bestOf: 5, isGrandFinal: true },
       ];
@@ -438,20 +635,49 @@ export function renderKickoff(st) {
       st.grandFinal = [
         { id: 'K-GF', team1: '', team2: '', winner: null, bestOf: 5, isGrandFinal: true },
       ];
-      saveKickoffState(st);
+      st.dirty = false;
+      saveKickoffState(st, activeSaveId);
     }
 
+
     // Check for completed matches in local storage and update state
+    const resultKeys = [];
     for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
-        if (key.startsWith('matchResult_')) {
-            const matchResult = JSON.parse(localStorage.getItem(key));
-            if (st.series[matchResult.id]) {
-                st.series[matchResult.id].winner = matchResult.winner;
-                st.series[matchResult.id].score = matchResult.score;
-                // Clear the local storage item after applying it to the state
-                localStorage.removeItem(key);
+        if (key && key.startsWith('matchResult_')) {
+            resultKeys.push(key);
+        }
+    }
+
+    if (resultKeys.length > 0) {
+        let stateUpdated = false;
+        resultKeys.forEach(key => {
+            try {
+                const matchResult = JSON.parse(localStorage.getItem(key));
+                if (matchResult && matchResult.id && st.series) {
+                    // Always update the series with the result
+                    st.series[matchResult.id] = {
+                        winner: matchResult.winner,
+                        loser: matchResult.loser,
+                        score: matchResult.score,
+                        playerStats: matchResult.playerStats,
+                        team1Name: matchResult.team1Name,
+                        team2Name: matchResult.team2Name,
+                        team1Score: matchResult.team1Score,
+                        team2Score: matchResult.team2Score,
+                        date: matchResult.date
+                    };
+                    // Clear the local storage item after applying it to the state
+                    localStorage.removeItem(key);
+                    stateUpdated = true;
+                    console.log(`Applied match result for ${matchResult.id} to kickoff state.`);
+                }
+            } catch (e) {
+                console.error("Error processing match result:", key, e);
             }
+        });
+        if (stateUpdated) {
+            saveKickoffState(st, activeSaveId);
         }
     }
 
@@ -505,10 +731,16 @@ export function renderKickoff(st) {
         st.lbRound3[1].team1 = st.series['K-LB2-M2']?.winner || st.lbRound3[1].team1;
     }
 
-    // LB Round 3 winners feed into LB Final
+    // LB Round 3 winners feed into LB Round 4
     if (st.lbRound3) {
-        st.lbFinal[0].team1 = st.series['K-LB3-M1']?.winner || st.lbFinal[0].team1;
-        st.lbFinal[0].team2 = st.series['K-LB3-M2']?.winner || st.lbFinal[0].team2;
+        st.lbRound4[0].team1 = st.series['K-LB3-M1']?.winner || st.lbRound4[0].team1;
+        st.lbRound4[0].team2 = st.series['K-LB3-M2']?.winner || st.lbRound4[0].team2;
+    }
+
+    // LB Round 4 winner and UB Final loser feed into LB Final
+    if (st.lbRound4 && st.ubFinal) {
+        st.lbFinal[0].team1 = st.series['K-LB4-M1']?.winner || st.lbFinal[0].team1;
+        st.lbFinal[0].team2 = st.series['K-UBF-M1']?.loser || st.lbFinal[0].team2;
     }
 
     // UB Final winner and LB Final winner feed into Grand Final
@@ -547,7 +779,7 @@ export function renderKickoff(st) {
 
     console.log('Kickoff bracket rendering complete.');
 
-    saveKickoffState(st);
+    saveKickoffState(st, activeSaveId);
 
   } catch (error) {
     console.error('Error rendering kickoff bracket:', error);
@@ -557,12 +789,40 @@ export function renderKickoff(st) {
 
 
 function simulateMatch(team1, team2, bestOf) {
+  const team1Obj = getSafeTeamByName(team1);
+  const team2Obj = getSafeTeamByName(team2);
+
+  // Calculate team power based on player overall ratings
+  const getPower = (teamObj) => {
+    if (!teamObj || !teamObj.players || teamObj.players.length === 0) {
+      // Fallback to global team power if no players found
+      const globalTeam = teams.find(t => t.name === (teamObj ? teamObj.name : ''));
+      return globalTeam ? globalTeam.power : 50;
+    }
+    const sum = teamObj.players.reduce((acc, p) => {
+      // Robust overall rating detection
+      let ovr = 70;
+      if (typeof p.overall === 'number') ovr = p.overall;
+      else if (p.rating && typeof p.rating.overall === 'number') ovr = p.rating.overall;
+      else if (p.ratings && typeof p.ratings.overall === 'number') ovr = p.ratings.overall;
+      return acc + ovr;
+    }, 0);
+    return sum / teamObj.players.length;
+  };
+
+  const p1 = getPower(team1Obj);
+  const p2 = getPower(team2Obj);
+  
+  // Calculate win probability using a simple Elo-like formula or just relative power
+  // We'll use a slightly weighted probability to favor the stronger team
+  const winChance1 = p1 / (p1 + p2);
+
   let team1Score = 0;
   let team2Score = 0;
   let gamesToWin = Math.ceil(bestOf / 2);
 
   while (team1Score < gamesToWin && team2Score < gamesToWin) {
-    if (Math.random() < 0.5) {
+    if (Math.random() < winChance1) {
       team1Score++;
     } else {
       team2Score++;
@@ -585,33 +845,100 @@ function kickoffWatchSeries(id, team1, team2, bestOf, isGrandFinal) {
   // Simulate match outcome
   const { winner, loser, score } = simulateMatch(team1, team2, bestOf);
 
-  const st = getKickoffState();
+  // Generate fake stats for simulated match so we can still see them
+  const team1Obj = getSafeTeamByName(team1);
+  const team2Obj = getSafeTeamByName(team2);
+  const playerStats = {};
+
+  const generateStats = (roster, tId, tName) => {
+    roster.forEach(p => {
+        let ovr = 75;
+        if (typeof p.overall === 'number') ovr = p.overall;
+        else if (p.rating && typeof p.rating.overall === 'number') ovr = p.rating.overall;
+        else if (p.ratings && typeof p.ratings.overall === 'number') ovr = p.ratings.overall;
+
+        playerStats[p.id || p.name] = {
+            name: p.name,
+            teamId: tId,
+            teamName: tName,
+            overall: ovr,
+            kills: Math.floor(Math.random() * 25) + 10,
+            deaths: Math.floor(Math.random() * 20) + 10,
+            assists: Math.floor(Math.random() * 10) + 2,
+            hs: Math.floor(Math.random() * 30) + 10,
+            damage: Math.floor(Math.random() * 3000) + 1000
+        };
+    });
+  };
+
+  if (team1Obj && team1Obj.players) generateStats(team1Obj.players, team1Obj.id, team1Obj.name);
+  if (team2Obj && team2Obj.players) generateStats(team2Obj.players, team2Obj.id, team2Obj.name);
+
+  // Generate fake map results for simulation
+  const mapResults = [];
+  const scoreParts = score.split('-');
+  const t1Wins = parseInt(scoreParts[0]);
+  const t2Wins = parseInt(scoreParts[1]);
+  const totalMaps = t1Wins + t2Wins;
+  
+  const maps = shuffleArray([...mapPool]).slice(0, totalMaps);
+  
+  for (let i = 0; i < totalMaps; i++) {
+      const mapPlayerStats = {};
+      const allPlayers = [...(team1Obj?.players || []), ...(team2Obj?.players || [])];
+      
+      allPlayers.forEach(p => {
+          mapPlayerStats[p.id || p.name] = {
+              name: p.name,
+              teamId: p.teamId || (team1Obj?.players?.some(tp => tp.id === p.id) ? team1Obj.id : team2Obj?.id),
+              teamName: p.teamName || (team1Obj?.players?.some(tp => tp.id === p.id) ? team1Obj.name : team2Obj?.name),
+              kills: Math.floor(Math.random() * 20) + 5,
+              deaths: Math.floor(Math.random() * 15) + 5,
+              assists: Math.floor(Math.random() * 8) + 1,
+              hs: Math.floor(Math.random() * 30) + 10,
+              damage: Math.floor(Math.random() * 2500) + 500
+          };
+      });
+
+      mapResults.push({
+          mapName: maps[i],
+          winner: i < t1Wins ? team1 : team2, // Simple logic: first X maps to T1, rest to T2
+          score: "13-10",
+          playerStats: mapPlayerStats
+      });
+  }
+
+  const activeSaveId = localStorage.getItem('activeSaveId');
+  const st = getKickoffState(activeSaveId);
     const activeSave = loadCareer();
     if (activeSave && activeSave.team) {
       dataU.playerTeam = activeSave.team;
     }
-  st.series[id] = { winner: winner, loser: loser, score: score };
-  localStorage.setItem("valorantKickoffState", JSON.stringify(st));
-  renderKickoff(st); // Re-render the bracket after a match is simulated
+  
+  st.series[id] = { 
+    winner: winner, 
+    loser: loser, 
+    score: score,
+    playerStats: playerStats,
+    mapResults: mapResults,
+    team1Name: team1,
+    team2Name: team2,
+    team1Id: team1Obj?.id,
+    team2Id: team2Obj?.id,
+    team1Score: t1Wins,
+    team2Score: t2Wins,
+    date: new Date().toISOString()
+  };
+  saveKickoffState(st, activeSaveId);
+  
+  // Update browser storage to trigger a sync (in case other components are listening)
+  localStorage.setItem('rerenderKickoff', Date.now());
+  
+  // Re-run the bracket logic immediately to move winners to next round
+  renderKickoff(st); 
 }
 
 
-// Listen for messages from the parent window (e.g., from the React app)
-window.addEventListener('message', (event) => {
-  // Ensure the message is from a trusted origin if deployed in production
-  // if (event.origin !== "http://localhost:3002") return; // Example origin check
-
-  if (event.data === 'rerenderKickoff') {
-    console.log('Received rerenderKickoff message, re-rendering kickoff bracket.');
-    const storedState = localStorage.getItem("valorantKickoffState");
-    const st = storedState ? JSON.parse(storedState) : { series: {} };
-    renderKickoff(st);
-  }
-});
-
-// Initial render when the page loads
-const storedState = localStorage.getItem("valorantKickoffState");
-const st = storedState ? JSON.parse(storedState) : { series: {} };
-renderKickoff(st);
+// Initial render logic and message listeners are now handled in kickoff_entry.jsx
 
 

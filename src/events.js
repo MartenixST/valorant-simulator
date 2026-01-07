@@ -2,8 +2,8 @@ function getActiveSave() {
   try {
     const id = localStorage.getItem('activeSaveId');
     if (!id) return null;
-    const saves = JSON.parse(localStorage.getItem('careerSaves')) || [];
-    return saves.find(s => String(s.id) === String(id)) || null;
+    const localSave = localStorage.getItem(`save_${id}`);
+    return localSave ? JSON.parse(localSave) : null;
   } catch (e) {
     return null;
   }

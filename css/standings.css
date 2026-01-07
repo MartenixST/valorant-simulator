@@ -156,5 +156,127 @@
     animation: fadeInRow 0.3s ease forwards;
     animation-delay: calc(var(--row-index) * 0.05s);
     opacity: 0;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.standings-table tr:hover {
+    background: rgba(255, 70, 85, 0.1) !important;
+}
+
+/* Modal Styles */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(15, 25, 35, 0.95);
+    backdrop-filter: blur(8px);
+}
+
+.modal-content {
+    background-color: #1f2326;
+    margin: 5% auto;
+    padding: 0;
+    border: 1px solid #ff4655;
+    width: 80%;
+    max-width: 800px;
+    border-radius: 4px;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.8);
+    overflow: hidden;
+    animation: modalFadeIn 0.3s ease-out;
+}
+
+@keyframes modalFadeIn {
+    from { opacity: 0; transform: translateY(-30px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.modal-header {
+    background: #ff4655;
+    color: white;
+    padding: 20px 30px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.team-info-header {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.modal-team-logo {
+    width: 48px;
+    height: 48px;
+    object-fit: contain;
+    filter: brightness(0) invert(1);
+}
+
+.modal-header h2 {
+    margin: 0;
+    font-family: 'Valorant', sans-serif;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+
+.close-modal {
+    color: white;
+    font-size: 30px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: transform 0.2s;
+}
+
+.close-modal:hover {
+    transform: scale(1.2);
+}
+
+.modal-body {
+    padding: 30px;
+}
+
+.roster-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.roster-table th {
+    text-align: left;
+    color: #7e7e7e;
+    text-transform: uppercase;
+    font-size: 12px;
+    letter-spacing: 1px;
+    padding: 10px 15px;
+    border-bottom: 1px solid #383e42;
+}
+
+.roster-table td {
+    padding: 15px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    color: #ece8e1;
+}
+
+.roster-table tr:hover {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.role-tag {
+    background: rgba(255, 70, 85, 0.1);
+    color: #ff4655;
+    padding: 4px 10px;
+    border-radius: 2px;
+    font-size: 11px;
+    text-transform: uppercase;
+    font-weight: bold;
+}
+
+.rating-value {
+    font-weight: bold;
+    color: #00f6ff;
 }
 

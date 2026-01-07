@@ -3,6 +3,33 @@ import { teams, teamLogos } from '../teams.js'; // Import teams and teamLogos
 import SimWeekButton from './SimWeekButton.jsx';
 
 const CareerSidebar = ({ activeSection, handleNavClick, activeSave, setActiveSave }) => {
+  const handleExport = (e) => {
+    e.preventDefault();
+    try {
+      const activeSaveId = localStorage.getItem('activeSaveId');
+      if (!activeSaveId) {
+        alert('No active save found to export.');
+        return;
+      }
+      const localSave = localStorage.getItem(`save_${activeSaveId}`);
+      if (!localSave) {
+        alert('Could not find save data in storage.');
+        return;
+      }
+      
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(localSave);
+      const downloadAnchorNode = document.createElement('a');
+      downloadAnchorNode.setAttribute("href",     dataStr);
+      downloadAnchorNode.setAttribute("download", `valorant_sim_save_${activeSaveId}.json`);
+      document.body.appendChild(downloadAnchorNode);
+      downloadAnchorNode.click();
+      downloadAnchorNode.remove();
+    } catch (err) {
+      console.error('Export failed:', err);
+      alert('Failed to export save file.');
+    }
+  };
+
   return (
     <div className="sidebar">
       <div id="careerInfo" className="career-info">
@@ -30,8 +57,8 @@ const CareerSidebar = ({ activeSection, handleNavClick, activeSave, setActiveSav
         <a href="#" onClick={() => handleNavClick('career-scripts')} className={`nav-item ${activeSection === 'career-scripts' ? 'active' : ''}`}><i className="fa-solid fa-file-code icon" style={{ marginRight: '8px' }}></i>Scripts</a>
       </nav>
       <div className="sidebar-footer">
-        <a href="#" onClick={() => handleNavClick('export-file')}><i className="fa-solid fa-file-export icon" style={{ marginRight: '8px' }}></i>Export File</a>
-        <a href="#" onClick={() => window.location.href = 'career_entry.html'}><i className="fa-solid fa-arrow-left icon" style={{ marginRight: '8px' }}></i>Back</a>
+        <a href="#" className="nav-item" onClick={handleExport}><i className="fa-solid fa-file-export icon" style={{ marginRight: '8px' }}></i>Export File</a>
+        <a href="#" className="nav-item" onClick={() => window.location.href = 'career_entry.html'}><i className="fa-solid fa-arrow-left icon" style={{ marginRight: '8px' }}></i>Back</a>
       </div>
     </div>
   );

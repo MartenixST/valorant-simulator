@@ -9,29 +9,77 @@ export class PlayerRating {
         this.mental = mental || 50;
         this.teamwork = teamwork || 50;
         this.consistency = consistency || 50;
-        this.potential = potential || Math.max(this.overall, 70);
+        
+        // Potential should always be at least the current overall
+        const currentOverall = this.calculateOverall();
+        this.potential = potential || Math.max(currentOverall, 70);
     }
 
     // Generate random ratings for a new player
-    static generateRandom(base = 50, variance = 40) {
-        const rand = () => Math.floor(Math.random() * variance) + base;
+    static generateRandom(base = 75, variance = 30) {
+        // Ensure base is high enough for competitive play
+        const effectiveBase = Math.max(base, 65);
+        const rand = () => Math.floor(Math.random() * variance) + (effectiveBase - variance/2);
+        
         const ratings = new PlayerRating(
-            rand(), // Aim
-            rand(), // Movement
-            rand(), // Game Sense
-            rand(), // Clutch
-            rand(), // Aggression
-            rand(), // Utility
-            rand(), // Mental
-            rand(), // Teamwork
-            rand()  // Consistency
+            Math.max(1, Math.min(99, rand())), // Aim
+            Math.max(1, Math.min(99, rand())), // Movement
+            Math.max(1, Math.min(99, rand())), // Game Sense
+            Math.max(1, Math.min(99, rand())), // Clutch
+            Math.max(1, Math.min(99, rand())), // Aggression
+            Math.max(1, Math.min(99, rand())), // Utility
+            Math.max(1, Math.min(99, rand())), // Mental
+            Math.max(1, Math.min(99, rand())), // Teamwork
+            Math.max(1, Math.min(99, rand()))  // Consistency
         );
-        ratings.potential = Math.min(99, Math.max(ratings.overall, rand() + 10));
+        
+        const overall = ratings.overall;
+        // Potential should be at least the overall, but can go up to 99
+        ratings.potential = Math.min(99, Math.max(overall, Math.floor(Math.random() * (100 - overall)) + overall));
         return ratings;
     }
 
-    get overall() {
+    calculateOverall() {
         return Math.round((this.aim + this.movement + this.gameSense + this.clutch + this.aggression + this.utility + this.mental + this.teamwork + this.consistency) / 9);
+    }
+
+    get overall() {
+        return this.calculateOverall();
+    }
+
+    static fromJSON(data) {
+        if (!data) return null;
+        
+        // Handle case where data might be a simple number (old rating format)
+        let ratingData = data;
+        if (typeof ratingData === 'number') {
+            ratingData = {
+                aim: ratingData,
+                movement: ratingData,
+                gameSense: ratingData,
+                clutch: ratingData,
+                aggression: ratingData,
+                utility: ratingData,
+                mental: ratingData,
+                teamwork: ratingData,
+                consistency: ratingData,
+                potential: ratingData + 10
+            };
+        }
+
+        const ratings = new PlayerRating(
+            Number(ratingData?.aim ?? 50),
+            Number(ratingData?.movement ?? 50),
+            Number(ratingData?.gameSense ?? 50),
+            Number(ratingData?.clutch ?? 50),
+            Number(ratingData?.aggression ?? 50),
+            Number(ratingData?.utility ?? 50),
+            Number(ratingData?.mental ?? 50),
+            Number(ratingData?.teamwork ?? 50),
+            Number(ratingData?.consistency ?? 50),
+            Number(ratingData?.potential ?? 70)
+        );
+        return ratings;
     }
 }
 
@@ -82,7 +130,7 @@ export const SHIELDS = {
 // Player class
 export class Player {
     constructor(name, role, ratings, teamId = null, nationality = "Unknown", age = 18) {
-        this.id = String(Date.now() + Math.floor(Math.random() * 1000));
+        this.id = String(Date.now() + Math.random().toString(36).substr(2, 9));
         this.name = name || Player.generateGamertag();
         this.gamertag = this.name;
         this.role = role || this.getRandomRole();
@@ -95,9 +143,10 @@ export class Player {
         this.ratings = this.rating; // Compatibility
         this.nationality = nationality;
         this.age = age;
-        this.teamId = teamId;
+        this.teamId = (teamId !== null && teamId !== undefined && teamId !== 'undefined' && teamId !== 'null') ? String(teamId) : null;
+        this.team = null; // Add team name property
+        this.status = "active"; // "active" or "bench"
         
-        // Market value based on rating and potential
         this.marketValue = this.calculateMarketValue();
         
         this.weapon = WEAPONS.CLASSIC;
@@ -114,22 +163,10 @@ export class Player {
             damageDealt: 0
         };
     }
-    
+
     // Alias for compatibility with rating.getOverallRating()
     get overall() {
         return this.rating.overall;
-    }
-
-    calculateMarketValue() {
-        const baseValue = 5000;
-        const ratingMultiplier = Math.pow(this.overall / 60, 4); // Exponential increase for high ratings
-        const potentialMultiplier = 1 + (this.rating.potential / 100);
-        const ageFactor = (30 - this.age) / 12; // Younger players are slightly more valuable
-        
-        let value = baseValue * ratingMultiplier * potentialMultiplier * ageFactor;
-        
-        // Round to nearest 500
-        return Math.max(1000, Math.round(value / 500) * 500);
     }
 
     get potential() {
@@ -138,6 +175,19 @@ export class Player {
 
     getOverallRating() {
         return this.rating.overall;
+    }
+
+    calculateMarketValue() {
+        const rating = this.overall || 75;
+        // Base salary of 50,000, scales up with rating
+        // A player with 60 rating gets ~50,000
+        // A player with 90 rating gets ~250,000+
+        const base = 50000;
+        if (rating <= 60) return base;
+        
+        const scaled = Math.floor(Math.pow(rating / 60, 4) * base);
+        // Round to nearest 1000 for cleaner numbers
+        return Math.round(scaled / 1000) * 1000;
     }
     
     getRandomRole() {
@@ -178,11 +228,79 @@ export class Player {
         }
         return false;
     }
+
+    static fromJSON(data) {
+        if (!data) return null;
+        
+        // If it's already a Player instance with the necessary methods, return it
+        if (data instanceof Player && typeof data.getOverallRating === 'function') return data;
+        
+        // Ensure we always have some rating data
+        let ratingData = data.rating || data.ratings;
+        if (!ratingData) {
+            // Fallback for very old data or missing ratings
+            const base = data.overall || 75;
+            ratingData = {
+                aim: base, movement: base, gameSense: base,
+                clutch: base, aggression: base, utility: base,
+                mental: base, teamwork: base, consistency: base,
+                potential: base + 5
+            };
+        }
+        
+        const ratings = PlayerRating.fromJSON(ratingData);
+        
+        const player = new Player(
+            data.name || data.gamertag, 
+            data.role, 
+            ratings, 
+            data.teamId, 
+            data.nationality || "Unknown", 
+            data.age ? Number(data.age) : 18
+        );
+        
+        // Use a consistent ID if provided
+        if (data.id) player.id = String(data.id);
+        
+        player.gamertag = data.gamertag || data.name || player.gamertag;
+        player.money = Number(data.money ?? 800);
+        player.kills = Number(data.kills ?? 0);
+        player.deaths = Number(data.deaths ?? 0);
+        player.assists = Number(data.assists ?? 0);
+        player.stats = data.stats || { kills: 0, deaths: 0, assists: 0, hs: 0, damageDealt: 0 };
+        player.status = data.status || "active";
+        
+        // Preserve team name if present
+        if (data.team) player.team = data.team;
+        
+        // Ensure ALL properties from data are copied to the instance
+        // This is critical for preserving nationality, age, etc.
+        Object.keys(data).forEach(key => {
+            // Don't overwrite the complex objects we just handled
+            if (['rating', 'ratings', 'stats'].includes(key)) return;
+            
+            // For simple properties, if they exist in data, copy them
+            if (data[key] !== undefined && data[key] !== null) {
+                // If it's age, ensure it's a number
+                if (key === 'age') player.age = Number(data[key]);
+                else if (key === 'teamId') player.teamId = String(data[key]);
+                else player[key] = data[key];
+            }
+        });
+
+        // CRITICAL: Recalculate market value AFTER copying properties to ensure it's not the old 5k
+        if (!player.marketValue || player.marketValue < 50000) {
+            player.marketValue = player.calculateMarketValue();
+        }
+
+        return player;
+    }
 }
 
 export class Team {
-    constructor(name) {
+    constructor(name, id = null) {
         this.name = name;
+        this.id = id !== null && id !== undefined ? String(id) : null;
         this.players = [];
         this.score = 0;
         this.side = 'attack'; // 'attack' or 'defense'
@@ -190,17 +308,21 @@ export class Team {
 
     addPlayer(player) {
         this.players.push(player);
-        player.teamId = this.name;
+        if (this.id) {
+            player.teamId = String(this.id);
+        } else {
+            player.teamId = String(this.name);
+        }
     }
 
     switchSide(side) {
         this.side = side || (this.side === 'attack' ? 'defense' : 'attack');
     }
-}
 
-export class EconomySystem {
-    constructor() {
-        console.log("EconomySystem initialized");
+    get power() {
+        const activePlayers = this.players.filter(p => p.status !== 'bench');
+        if (activePlayers.length === 0) return 50;
+        return Math.round(activePlayers.reduce((sum, p) => sum + p.overall, 0) / activePlayers.length);
     }
 }
 
@@ -213,24 +335,84 @@ export class RoundSimulator {
     }
 
     simulateRound() {
-        const attackerPower = this.attackers.players.reduce((sum, p) => sum + p.getOverallRating(), 0);
-        const defenderPower = this.defenders.players.reduce((sum, p) => sum + p.getOverallRating(), 0);
+        // In manual match simulation, we pass exactly 5 players. 
+        // In weekly simulation, we might have more and need to filter by status.
+        const activeAttackers = this.attackers.players.length <= 5 ? this.attackers.players : this.attackers.players.filter(p => p.status !== 'bench').slice(0, 5);
+        const activeDefenders = this.defenders.players.length <= 5 ? this.defenders.players : this.defenders.players.filter(p => p.status !== 'bench').slice(0, 5);
+
+        const attackerPower = activeAttackers.reduce((sum, p) => sum + p.getOverallRating(), 0);
+        const defenderPower = activeDefenders.reduce((sum, p) => sum + p.getOverallRating(), 0);
         
+        // Base win chance on power, but add some variance
         const totalPower = attackerPower + defenderPower;
-        const winChance = attackerPower / totalPower;
+        let winChance = attackerPower / (totalPower || 1);
+        
+        // Advantage to defense (typical in Valorant)
+        winChance -= 0.02; 
+        
+        // Clamp win chance
+        winChance = Math.max(0.1, Math.min(0.9, winChance));
         
         const attackerWins = Math.random() < winChance;
         const winner = attackerWins ? this.attackers : this.defenders;
         const loser = attackerWins ? this.defenders : this.attackers;
+        const activeWinnerPlayers = attackerWins ? activeAttackers : activeDefenders;
+        const activeLoserPlayers = attackerWins ? activeDefenders : activeAttackers;
         
         winner.score++;
         
         const log = `Round ${this.roundNumber}: ${winner.name} won against ${loser.name}`;
         this.logs.push(log);
         
-        // Randomly assign some stats
-        winner.players[Math.floor(Math.random() * 5)].kills++;
-        loser.players[Math.floor(Math.random() * 5)].deaths++;
+        // Performance-based stat assignment
+        // Top 2 players in winner team are more likely to get the kill
+        const sortedWinnerPlayers = [...activeWinnerPlayers].sort((a, b) => b.overall - a.overall);
+        
+        let killerIdx;
+        if (activeWinnerPlayers.length >= 2 && Math.random() < 0.6) {
+            killerIdx = Math.random() < 0.5 ? 0 : 1;
+        } else {
+            killerIdx = Math.floor(Math.random() * activeWinnerPlayers.length);
+        }
+        
+        const killer = sortedWinnerPlayers[killerIdx];
+        if (killer) {
+            killer.kills++;
+            killer.stats.kills++;
+        }
+        
+        const sortedLoserPlayers = [...activeLoserPlayers].sort((a, b) => a.overall - b.overall);
+        const victimIdx = activeLoserPlayers.length > 1 && Math.random() < 0.4 ? 0 : Math.floor(Math.random() * activeLoserPlayers.length);
+        const victim = sortedLoserPlayers[victimIdx];
+        if (victim) {
+            victim.deaths++;
+            victim.stats.deaths++;
+        }
+        
+        // Randomly assign an assist
+        const assistCandidate = activeWinnerPlayers.filter(p => p.id !== (killer ? killer.id : null));
+        if (assistCandidate.length > 0 && Math.random() < 0.4) {
+            const assister = assistCandidate[Math.floor(Math.random() * assistCandidate.length)];
+            if (assister) {
+                assister.assists++;
+                assister.stats.assists++;
+            }
+        }
+
+        // HS chance based on aim
+        if (killer && Math.random() < (killer.rating.aim / 200) + 0.1) {
+            killer.stats.hs++;
+        }
+
+        // Simulate damage for all players in the round
+        activeWinnerPlayers.forEach(p => {
+            const isKiller = killer && p.id === killer.id;
+            const baseDamage = isKiller ? 150 : Math.floor(Math.random() * 100);
+            p.stats.damageDealt += baseDamage;
+        });
+        activeLoserPlayers.forEach(p => {
+            p.stats.damageDealt += Math.floor(Math.random() * 80);
+        });
         
         return {
             winner: winner,

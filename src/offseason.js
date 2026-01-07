@@ -1,12 +1,9 @@
 function getActiveSave() {
   try {
     const id = localStorage.getItem('activeSaveId');
-    if (!id) {
-      return null;
-    }
-    const saves = JSON.parse(localStorage.getItem('careerSaves')) || [];
-    const activeSave = saves.find(s => String(s.id) === String(id)) || null;
-    return activeSave;
+    if (!id) return null;
+    const localSave = localStorage.getItem(`save_${id}`);
+    return localSave ? JSON.parse(localSave) : null;
   } catch (e) {
     console.error("getActiveSave: Error retrieving active save:", e);
     return null;
@@ -16,14 +13,9 @@ function getActiveSave() {
 function updateActiveSave(updatedSave) {
   console.log("updateActiveSave: Received updatedSave:", updatedSave);
   try {
-    const saves = JSON.parse(localStorage.getItem('careerSaves')) || [];
-    const idx = saves.findIndex(s => String(s.id) === String(updatedSave.id));
-    if (idx !== -1) {
-      saves[idx] = updatedSave;
-      localStorage.setItem('careerSaves', JSON.stringify(saves));
+    if (updatedSave && updatedSave.id) {
+      localStorage.setItem(`save_${updatedSave.id}`, JSON.stringify(updatedSave));
       console.log("updateActiveSave: Successfully updated and stored save.");
-    } else {
-      console.log("updateActiveSave: Save not found in existing saves.");
     }
   } catch (e) {
     console.error("updateActiveSave: Error updating active save:", e);
@@ -45,7 +37,7 @@ function generateOffer() {
   const role = roles[Math.floor(Math.random()*roles.length)];
   const salary = (Math.floor(Math.random()*15)+5) * 10_000; // 50k - 200k
   const acceptChance = Math.random()*0.6 + 0.2; // 20%-80%
-  return { id: Date.now() + Math.floor(Math.random()*1000), name, role, salary, acceptChance };
+  return { id: Date.now() + Math.random().toString(36).substr(2, 9), name, role, salary, acceptChance };
 }
 
 export function renderOffseason() {

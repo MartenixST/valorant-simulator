@@ -1,11 +1,12 @@
 body {
   padding: 0 !important;
   text-align: left !important;
-  background: var(--bg-main);
+  background: transparent !important; /* Make background transparent for iframe */
+  overflow-x: hidden; /* Prevent horizontal scrollbar */
 }
 
 .career-section {
-  padding: 15px;
+  padding: 5px; /* Further reduced padding */
   width: 100%;
   box-sizing: border-box;
   margin: 0;
@@ -49,24 +50,43 @@ body {
 }
 
 /* Double elimination bracket layout */
-.bracket-wrapper { display: flex; flex-direction: column; gap: var(--spacing-sm); align-items: center; }
-.bracket-section { width: 100%; max-width: 1200px; }
-.bracket-section > h3 { margin: 4px 0 4px 4px; color: var(--v-white); font-weight: 600; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; }
+.bracket-wrapper { 
+  display: flex; 
+  flex-direction: column; 
+  gap: 10px; 
+  align-items: center; 
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0 10px;
+}
+
+.bracket-section { 
+  width: 100%; 
+  max-width: 100%; 
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.bracket-section > h3 { margin: 10px 0; color: var(--v-white); font-weight: 600; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; width: 100%; text-align: center; }
+
 .bracket-grid { 
   display: flex; 
   flex-direction: row; 
   flex-wrap: nowrap;
-  gap: 60px; /* Further increased gap between rounds */
+  gap: 15px; /* Further reduced gap between rounds from 20px */
   align-items: center; 
-  justify-content: flex-start; 
-  overflow-x: auto; 
-  padding: 30px;
+  justify-content: center; /* Center the grid content */
+  padding: 5px; /* Reduced padding */
   width: 100%;
+  box-sizing: border-box;
 }
+
+/* Ensure the bracket sections themselves don't overflow */
 #kickoffBracket { 
   display: flex;
   flex-direction: column;
-  gap: 80px; /* Further increased gap between major sections (Grand/Play-in/Upper/Lower) */
+  gap: 20px;
+  width: 100%;
 }
 
 /* Upper bracket has more space at top */
@@ -80,12 +100,12 @@ body {
 #kickoffGrandFinal .round { border: 1px solid var(--v-red); box-shadow: 0 0 15px rgba(255, 70, 85, 0.3); }
 
 .round { 
-  background: var(--bg-sidebar); 
-  border: 1px solid var(--border-color); 
+  background: rgba(25, 25, 25, 0.8); /* Glassy background for career integration */
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1); 
   border-radius: var(--border-radius); 
-  padding: 8px; 
-  min-width: 160px; 
-  max-width: 220px; 
+  padding: 6px; /* Reduced padding */
+  width: 160px; /* Reduced default width from 180px */
   flex-shrink: 0;
 }
 .round h4 { margin: 2px 0 6px 0; font-size: 12px; color: var(--v-red); text-transform: uppercase; }
@@ -114,14 +134,14 @@ body {
 .matches-vertical {
   display: flex;
   flex-direction: column;
-  gap: 45px; /* Further increased gap between matches in a round */
+  gap: 20px; /* Slightly increased gap for better connector alignment */
 }
 
 .match { 
   background: var(--v-dark-grey); 
   border: 1px solid var(--border-color); 
   border-radius: var(--border-radius-sm); 
-  padding: 12px; 
+  padding: 6px; 
   margin-bottom: 0; 
   position: relative; 
   transition: border-color 0.2s, box-shadow 0.2s; 
@@ -129,9 +149,9 @@ body {
 .match:hover { border-color: var(--v-red); box-shadow: 0 0 10px rgba(255, 70, 85, 0.2); }
 
 /* Layout and spacing */
-.bracket-section { margin-bottom: 60px; }
-.round { width: 240px; }
-#kickoffUpper .round:first-child { width: 160px; }
+.bracket-section { margin-bottom: 15px; }
+#kickoffUpper .round:first-child { width: 130px; }
+#kickoffLower .round { width: 150px; } /* Specifically smaller rounds for lower bracket */
 
 /* Vertical connecting lines for matches */
 .match { position: relative; }
@@ -145,9 +165,9 @@ body {
 .matches-vertical .match::after { 
   content: ''; 
   position: absolute; 
-  right: -30px; 
+  right: -8px; 
   top: 50%; 
-  width: 30px; 
+  width: 8px; 
   height: 2px; 
   background: #555; 
   z-index: 1;
@@ -157,10 +177,10 @@ body {
 .matches-vertical .match:nth-child(odd):not(:only-child)::before {
   content: '';
   position: absolute;
-  right: -30px;
+  right: -8px; 
   top: 50%;
   width: 2px;
-  height: calc(100% + 45px); /* From center of this to center of next */
+  height: calc(100% + 20px + 2px); /* Matches the new gap: 100% (match height) + 20px (gap) + offset */
   background: #555;
   z-index: 1;
 }
@@ -173,9 +193,9 @@ body {
 .matches-vertical .match:nth-child(odd):not(:only-child) .match-winner::after {
   content: '';
   position: absolute;
-  right: -60px;
-  top: calc(100% + 34.5px); /* 22.5px (half gap) + 12px (match bottom padding) */
-  width: 30px;
+  right: -15px; 
+  top: calc(100% + 21px); /* Adjusted for 20px gap */
+  width: 7px;
   height: 2px;
   background: #555;
   z-index: 1;
@@ -184,8 +204,8 @@ body {
 /* Special cases for bracket flow where 1 match leads to 1 match */
 .matches-vertical .match:only-child::after {
   height: 2px;
-  width: 60px;
-  right: -60px;
+  width: 15px;
+  right: -15px;
   top: 50%;
 }
 .matches-vertical .match:only-child::before { display: none; }
@@ -202,22 +222,23 @@ body {
 /* Special cases for bracket flow where 1 match leads to 1 match */
 .matches-vertical .match:only-child::after {
   height: 2px;
-  width: 60px;
-  right: -60px;
+  width: 15px;
+  right: -15px;
 }
 
-/* Special connector for grand finals */
+/* Special connector for grand finals - Adjusted for new centering */
 #kickoffGrandFinal {
   position: relative;
+  width: 100%;
 }
 
 #kickoffGrandFinal::before {
   content: '';
   position: absolute;
-  top: -20px;
+  top: -10px; /* Reduced from -20px */
   left: 50%;
   width: 2px;
-  height: 20px;
+  height: 10px; /* Reduced from 20px */
   background: #555;
 }
 
@@ -233,22 +254,19 @@ body {
 }
 
 .team-logo {
-  width: 32px;
-  height: 32px;
+  width: 16px;
+  height: 16px;
   border-radius: 50%;
-  margin-right: 8px;
-  object-fit: cover;
-  background-color: #2a2a2a; /* Fallback background */
-  box-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
+  margin-right: 4px;
+  object-fit: contain;
+  background-color: transparent;
 }
-
-.team-element { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; font-size: 13px; }
-.team-logo { width: 20px; height: 20px; object-fit: contain; }
+.team-element { display: flex; align-items: center; gap: 4px; margin-bottom: 2px; font-size: 11px; }
 .team-score { font-weight: bold; color: var(--v-red); margin-left: auto; }
 
 .match-winner { font-size: 11px; color: var(--v-light-grey); opacity: 0.7; margin-top: 4px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 4px; }
 
-.simulate-button, .play-button { 
+.simulate-button, .play-button, .stats-button { 
   padding: 4px 8px; 
   font-size: 10px; 
   margin-top: 5px; 
@@ -261,12 +279,275 @@ body {
   transition: all 0.2s;
 }
 
-.simulate-button:hover, .play-button:hover {
+.simulate-button:hover, .play-button:hover, .stats-button:hover {
   background: var(--v-red);
   border-color: var(--v-red);
 }
 
-.my-team { color: var(--v-red); font-weight: bold; }
+.stats-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.9);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10000;
+    backdrop-filter: blur(8px);
+}
 
-/* Make the content area scrollable to ensure everything fits */
-#kickoffBracket { overflow-x: auto; max-width: 100%; }
+.stats-modal-content {
+    background: #0f1923;
+    width: 95%;
+    max-width: 900px;
+    max-height: 90vh;
+    border-radius: 4px;
+    border: 1px solid rgba(255, 70, 85, 0.3);
+    box-shadow: 0 0 50px rgba(0, 0, 0, 0.5);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.stats-modal-header {
+    padding: 20px;
+    background: #111b26;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.stats-header-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.stats-header-top h2 {
+    margin: 0;
+    font-family: var(--font-v);
+    color: var(--v-red);
+    text-transform: uppercase;
+    font-size: 20px;
+    letter-spacing: 1px;
+}
+
+.close-stats {
+    background: none;
+    border: none;
+    color: #ece8e1;
+    font-size: 32px;
+    cursor: pointer;
+    line-height: 1;
+    transition: color 0.2s;
+}
+
+.close-stats:hover {
+    color: var(--v-red);
+}
+
+.match-summary-banner {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 40px;
+    padding: 15px;
+    background: rgba(255, 70, 85, 0.1);
+    border-radius: 4px;
+    margin-bottom: 20px;
+}
+
+.summary-team {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+}
+
+.summary-team .team-name {
+    font-family: var(--font-v);
+    font-size: 18px;
+    color: #ece8e1;
+    text-transform: uppercase;
+}
+
+.summary-team .team-score {
+    font-size: 32px;
+    font-weight: 800;
+    color: var(--v-red);
+    line-height: 1;
+}
+
+.summary-vs {
+    font-family: var(--font-v);
+    font-size: 14px;
+    color: rgba(236, 232, 225, 0.5);
+    font-weight: bold;
+}
+
+.stats-tabs {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 5px;
+}
+
+.tab-btn {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: rgba(236, 232, 225, 0.6);
+    padding: 8px 16px;
+    font-size: 12px;
+    text-transform: uppercase;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    border-radius: 2px;
+}
+
+.tab-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #ece8e1;
+}
+
+.tab-btn.active {
+    background: var(--v-red);
+    border-color: var(--v-red);
+    color: white;
+}
+
+.stats-container {
+    padding: 20px;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.team-stats-header {
+    margin: 20px 0 10px 0;
+    padding-left: 10px;
+    border-left: 3px solid var(--v-red);
+}
+
+.team-stats-header:first-child {
+    margin-top: 0;
+}
+
+.team-stats-header h3 {
+    margin: 0;
+    font-family: var(--font-v);
+    font-size: 16px;
+    color: #ece8e1;
+    text-transform: uppercase;
+}
+
+.stats-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0 4px;
+    margin-bottom: 20px;
+}
+
+.stats-table th {
+    text-align: left;
+    padding: 10px;
+    color: rgba(236, 232, 225, 0.5);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-weight: 600;
+}
+
+.stats-table td {
+    padding: 12px 10px;
+    background: rgba(255, 255, 255, 0.03);
+    color: #ece8e1;
+    font-size: 14px;
+}
+
+.stats-table tr td:first-child {
+    border-top-left-radius: 4px;
+    border-bottom-left-radius: 4px;
+}
+
+.stats-table tr td:last-child {
+    border-top-right-radius: 4px;
+    border-bottom-right-radius: 4px;
+}
+
+.player-name-cell {
+    font-weight: 600;
+    color: #ff4655 !important;
+}
+
+.stat-k { font-weight: bold; color: #ece8e1; }
+.stat-d { color: rgba(236, 232, 225, 0.6); }
+.stat-a { color: rgba(236, 232, 225, 0.6); }
+.stat-hs { color: #00ffcc; }
+.stat-adr { font-weight: bold; }
+
+.stats-container::-webkit-scrollbar {
+    width: 6px;
+}
+
+.stats-container::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.2);
+}
+
+.stats-container::-webkit-scrollbar-thumb {
+    background: rgba(255, 70, 85, 0.3);
+    border-radius: 10px;
+}
+
+.stats-container::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 70, 85, 0.5);
+}
+
+.team-header-content {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.team-logo-small {
+    width: 24px;
+    height: 24px;
+    object-fit: contain;
+}
+
+.text-center {
+    text-align: center !important;
+}
+
+.stats-table th.text-center, 
+.stats-table td.text-center {
+    text-align: center !important;
+}
+
+.stats-table th:first-child,
+.stats-table td:first-child {
+    width: 40%;
+}
+
+.stats-table th:not(:first-child),
+.stats-table td:not(:first-child) {
+    width: 12%;
+}
+
+.simulate-button:disabled,
+.play-button:disabled {
+    background-color: #333 !important;
+    color: #666 !important;
+    cursor: not-allowed;
+    border-color: #444 !important;
+    opacity: 0.6;
+}
+
+.simulate-button:disabled:hover,
+.play-button:disabled:hover {
+    transform: none !important;
+    box-shadow: none !important;
+}
+#kickoffBracket { 
+  overflow: visible; 
+  width: 100%; 
+}

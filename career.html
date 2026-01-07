@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="css/style.css">
   <link rel="stylesheet" href="css/career.css">
   <link rel="stylesheet" href="css/career_layout.css">
+  <link rel="stylesheet" href="css/players.css">
 </head>
 <body>
   <div id="root">
@@ -22,29 +23,94 @@
         <h3>Edit Player Attributes</h3>
         <form id="player-edit-form">
           <input type="hidden" id="edit-player-id">
-          <label for="edit-player-name">Name:</label>
-          <input type="text" id="edit-player-name" disabled>
-          <label for="edit-player-gamertag">Gamertag:</label>
-          <input type="text" id="edit-player-gamertag">
-          <label for="edit-player-role">Role:</label>
-          <select id="edit-player-role">
-            <option value="Duelist">Duelist</option>
-            <option value="Initiator">Initiator</option>
-            <option value="Controller">Controller</option>
-            <option value="Sentinel">Sentinel</option>
-            <option value="Flex">Flex</option>
-          </select>
-          <label for="edit-player-nationality">Nationality:</label>
-          <input type="text" id="edit-player-nationality">
-          <label for="edit-player-age">Age:</label>
-          <input type="number" id="edit-player-age" min="16" max="30">
-          <label for="edit-player-skill">Skill:</label>
-          <input type="range" id="edit-player-skill" min="0" max="100">
-          <span id="edit-player-skill-value"></span>
-          <label for="edit-player-potential">Potential:</label>
-          <input type="range" id="edit-player-potential" min="0" max="100">
-          <span id="edit-player-potential-value"></span>
-          <button type="submit">Save Changes</button>
+          
+          <div class="form-row">
+            <div class="form-group">
+              <label for="edit-player-name">Name:</label>
+              <input type="text" id="edit-player-name" disabled>
+            </div>
+            <div class="form-group">
+              <label for="edit-player-gamertag">Gamertag:</label>
+              <input type="text" id="edit-player-gamertag">
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="edit-player-role">Role:</label>
+              <select id="edit-player-role">
+                <option value="Duelist">Duelist</option>
+                <option value="Initiator">Initiator</option>
+                <option value="Controller">Controller</option>
+                <option value="Sentinel">Sentinel</option>
+                <option value="Flex">Flex</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="edit-player-nationality">Nationality:</label>
+              <input type="text" id="edit-player-nationality">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="edit-player-age">Age:</label>
+            <input type="number" id="edit-player-age" min="16" max="30">
+          </div>
+          
+          <div class="edit-stats-grid">
+            <div class="edit-stat-item">
+              <label for="edit-player-aim">Aim:</label>
+              <input type="range" id="edit-player-aim" min="0" max="100">
+              <span id="edit-player-aim-value"></span>
+            </div>
+            <div class="edit-stat-item">
+              <label for="edit-player-movement">Movement:</label>
+              <input type="range" id="edit-player-movement" min="0" max="100">
+              <span id="edit-player-movement-value"></span>
+            </div>
+            <div class="edit-stat-item">
+              <label for="edit-player-gamesense">Game Sense:</label>
+              <input type="range" id="edit-player-gamesense" min="0" max="100">
+              <span id="edit-player-gamesense-value"></span>
+            </div>
+            <div class="edit-stat-item">
+              <label for="edit-player-clutch">Clutch:</label>
+              <input type="range" id="edit-player-clutch" min="0" max="100">
+              <span id="edit-player-clutch-value"></span>
+            </div>
+            <div class="edit-stat-item">
+              <label for="edit-player-aggression">Aggression:</label>
+              <input type="range" id="edit-player-aggression" min="0" max="100">
+              <span id="edit-player-aggression-value"></span>
+            </div>
+            <div class="edit-stat-item">
+              <label for="edit-player-utility">Utility:</label>
+              <input type="range" id="edit-player-utility" min="0" max="100">
+              <span id="edit-player-utility-value"></span>
+            </div>
+            <div class="edit-stat-item">
+              <label for="edit-player-mental">Mental:</label>
+              <input type="range" id="edit-player-mental" min="0" max="100">
+              <span id="edit-player-mental-value"></span>
+            </div>
+            <div class="edit-stat-item">
+              <label for="edit-player-teamwork">Teamwork:</label>
+              <input type="range" id="edit-player-teamwork" min="0" max="100">
+              <span id="edit-player-teamwork-value"></span>
+            </div>
+            <div class="edit-stat-item">
+              <label for="edit-player-consistency">Consistency:</label>
+              <input type="range" id="edit-player-consistency" min="0" max="100">
+              <span id="edit-player-consistency-value"></span>
+            </div>
+            <div class="edit-stat-item">
+              <label for="edit-player-potential">Potential:</label>
+              <input type="range" id="edit-player-potential" min="0" max="100">
+              <span id="edit-player-potential-value"></span>
+            </div>
+          </div>
+          
+          <button type="submit" class="btn-save">Save Changes</button>
         </form>
       </div>
     </div>

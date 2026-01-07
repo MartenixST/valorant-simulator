@@ -24,11 +24,13 @@ export function generatePlayer(region = "North America", forceRole = null, force
     const nationality = regionNationalities[Math.floor(Math.random() * regionNationalities.length)];
     const age = Math.floor(Math.random() * 10) + 17; // 17-26
     
-    const base = forceRating || 60;
-    const ratings = PlayerRating.generateRandom(base, 30);
+    const base = forceRating || 75;
+    const ratings = PlayerRating.generateRandom(base, 25);
     
     const role = forceRole || Player.prototype.getRandomRole();
     const player = new Player(null, role, ratings, null, nationality, age);
+    player.teamId = null; // Explicitly set teamId to null for free agents
+    player.team = null;   // Explicitly set team to null for free agents
     
     return player;
 }
@@ -43,17 +45,13 @@ export function generatePlayersForRegion(region, count = 20) {
 
 export function assignPlayersToTeams(teamsToAssign, region) {
     const teamsWithPlayers = teamsToAssign.map(team => {
-        const teamPlayers = [];
-        const roles = ["Duelist", "Duelist", "Initiator", "Controller", "Sentinel"];
-        
-        roles.forEach(role => {
-            const baseRating = 60 + (team.power / 10);
-            teamPlayers.push(generatePlayer(region, role, baseRating));
-        });
+        const teamPlayers = generatePlayersForTeam(team.name, team.region || region, team.id, team.power);
         
         return {
             ...team,
-            players: teamPlayers
+            players: teamPlayers,
+            // Recalculate power based on assigned players
+            power: Math.round(teamPlayers.reduce((sum, p) => sum + p.overall, 0) / teamPlayers.length)
         };
     });
     return teamsWithPlayers;
@@ -61,36 +59,48 @@ export function assignPlayersToTeams(teamsToAssign, region) {
 
 export function generatePlayersForTeam(teamName, region, teamId = null, teamPower = 70) {
     const teamPlayers = [];
+    const normalizedTeamId = (teamId !== null && teamId !== undefined) ? String(teamId) : null;
+    console.log(`generatePlayersForTeam called for ${teamName} (ID: ${normalizedTeamId})`);
     
-    // Check if we have real players for this team
-    if (realPlayers[teamName]) {
-        realPlayers[teamName].forEach(p => {
+    // Check if we have real players for this team (case-insensitive)
+    const realTeamKey = Object.keys(realPlayers).find(k => k.toLowerCase() === teamName.toLowerCase());
+    
+    if (realTeamKey) {
+        console.log(`Found ${realPlayers[realTeamKey].length} real players for ${teamName} (matched as ${realTeamKey})`);
+        realPlayers[realTeamKey].forEach(p => {
             const ratings = PlayerRating.generateRandom(p.baseRating, 15);
-            const player = new Player(p.name, p.role, ratings, teamId, p.nationality, p.age);
+            const player = new Player(p.name, p.role, ratings, normalizedTeamId, p.nationality, p.age);
+            // Also set team name for better filtering
+            player.team = teamName;
             teamPlayers.push(player);
         });
         
         // Ensure 5 players
         if (teamPlayers.length < 5) {
+            console.log(`Only ${teamPlayers.length} real players found, adding randoms...`);
             const roles = ["Duelist", "Duelist", "Initiator", "Controller", "Sentinel"];
             for (let i = teamPlayers.length; i < 5; i++) {
                 const role = roles[i] || "Flex";
-                const baseRating = 60 + (teamPower / 10);
+                const baseRating = 75 + (teamPower / 10);
                 const player = generatePlayer(region, role, baseRating);
-                player.teamId = teamId;
+                player.teamId = normalizedTeamId;
+                player.team = teamName;
                 teamPlayers.push(player);
             }
         }
     } else {
+        console.log(`No real players found for ${teamName}, generating randoms...`);
         const roles = ["Duelist", "Duelist", "Initiator", "Controller", "Sentinel"];
         roles.forEach(role => {
-            const baseRating = 60 + (teamPower / 10);
+            const baseRating = 75 + (teamPower / 10);
             const player = generatePlayer(region, role, baseRating);
-            player.teamId = teamId;
+            player.teamId = normalizedTeamId;
+            player.team = teamName;
             teamPlayers.push(player);
         });
     }
     
+    console.log(`generatePlayersForTeam returning ${teamPlayers.length} players for ${teamName}`);
     return teamPlayers;
 }
 
