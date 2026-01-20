@@ -258,7 +258,7 @@ const PlayersHub = ({ activeSave, setActiveSave }) => {
             <div className="stat-bar-container">
                 <div className="stat-label">
                     <span>{label}</span>
-                    <span className={`text-${ratingClass}`}>{Math.round(value)}</span>
+                    <span className={`text-${ratingClass}`}>{Math.round(value * 10) / 10}</span>
                 </div>
                 <div className="stat-bar-bg">
                     <div className={`stat-bar-fill ${ratingClass}`} style={{ width: `${Math.min(100, Math.max(0, value))}%` }}></div>
@@ -279,7 +279,8 @@ const PlayersHub = ({ activeSave, setActiveSave }) => {
                 ratings.mental, ratings.teamwork, ratings.consistency
             ];
             const sum = stats.reduce((acc, curr) => acc + (Number(curr) || 50), 0);
-            return Math.round(sum / 9);
+            const avg = sum / 9;
+            return Math.round(avg * 10) / 10;
         })();
 
         const ratingClass = getRatingClass(overall);

@@ -685,7 +685,11 @@ function saveMatchState() {
         team2ActivePlayers: team2ActivePlayers,
         mapResults: mapResults
     };
-    localStorage.setItem(`match_${activeSaveId}_${matchId}`, JSON.stringify(matchState));
+    try {
+        localStorage.setItem(`match_${activeSaveId}_${matchId}`, JSON.stringify(matchState));
+    } catch (e) {
+        console.warn("persistMatchState: localStorage quota exceeded", e);
+    }
 }
 
 function checkMatchEnd() {
@@ -784,7 +788,11 @@ function saveMatchResult(winnerTeam) {
         date: new Date().toISOString()
     };
     
-    localStorage.setItem(`matchResult_${matchId}`, JSON.stringify(result));
+    try {
+        localStorage.setItem(`matchResult_${matchId}`, JSON.stringify(result));
+    } catch (e) {
+        console.warn("saveMatchResult: localStorage quota exceeded", e);
+    }
     console.log(`Saved match result for ${matchId}:`, result);
 
     // Update kickoff state in local storage if it exists

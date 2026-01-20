@@ -1,4 +1,4 @@
-import { teams } from './teams.js';
+import { teams, teamLogos } from './teams.js';
 import { Player, PlayerRating } from "./simulation.js";
 import { realPlayers } from './real_players.js';
 import { generatePlayer, generatePlayersForRegion as genPlayersRegion, generatePlayersForTeam } from './players.js';
@@ -7,7 +7,11 @@ const API_BASE_URL = 'http://localhost:5000/api';
 
 export function saveKickoffState(st, saveId = null) {
   const key = saveId ? `valorantKickoffState_${saveId}` : "valorantKickoffState";
-  localStorage.setItem(key, JSON.stringify(st));
+  try {
+    localStorage.setItem(key, JSON.stringify(st));
+  } catch (e) {
+    console.warn("saveKickoffState: localStorage quota exceeded", e);
+  }
 }
 
 export function getKickoffState(saveId = null) {
@@ -120,8 +124,10 @@ export function createNewSave(managerName, teamName, region) {
         teamBudgets[String(t.id)] = Math.floor(Math.random() * (1400000 - 600000 + 1)) + 600000;
     });
 
+    const allPlayers = [...teamPlayers, ...freeAgents, ...otherTeamsPlayers];
+
     const inboxMessages = [
-        createChampionshipContendersMessage(),
+        createChampionshipContendersMessage(allPlayers),
         createKickoffPreviewMessage(),
         createWelcomeMessage2(teamName, teamPlayers),
         createBetaTesterMessage()
@@ -137,7 +143,7 @@ export function createNewSave(managerName, teamName, region) {
         week: 1,
         budget: teamBudgets[String(teamId)] || 1000000,
         teamBudgets: teamBudgets,
-        players: [...teamPlayers, ...freeAgents, ...otherTeamsPlayers],
+        players: allPlayers,
         pendingOffers: [],
         stats: { wins: 0, losses: 0 },
         inbox: inboxMessages,
@@ -182,9 +188,32 @@ export async function startCareer(managerName, teamName, region) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
 
-        // Always save to localStorage as well
-        localStorage.setItem(`save_${save.id}`, JSON.stringify(save));
+    // Always save to localStorage as well, but handle quota errors gracefully
+    try {
+        // Optimization: For localStorage, we can store a slimmed-down version of the save 
+        // if it's too big, as the server holds the full data.
+        const saveToStore = { ...save };
+        
+        // If the save is very large (e.g., > 2000 players), slim it down for local storage
+        if (saveToStore.players && saveToStore.players.length > 500) {
+            console.log("startCareer: Slimming down localStorage backup to save space.");
+            // Keep only essential players (user team + some free agents)
+            const userTeamPlayers = saveToStore.players.filter(p => String(p.teamId) === String(saveToStore.teamId));
+            const otherPlayers = saveToStore.players.filter(p => String(p.teamId) !== String(saveToStore.teamId));
+            saveToStore.players = [...userTeamPlayers, ...otherPlayers.slice(0, 100)];
+        }
+
+        localStorage.setItem(`save_${save.id}`, JSON.stringify(saveToStore));
         localStorage.setItem('activeSaveId', String(save.id));
+    } catch (lsError) {
+        console.warn("localStorage quota exceeded, but data was sent to server:", lsError);
+        // Even if local storage fails, we have the activeSaveId so we can try to load from API
+        try {
+            localStorage.setItem('activeSaveId', String(save.id));
+        } catch (e) {
+            console.error("Critical: Could not even save activeSaveId to localStorage");
+        }
+    }
         
         console.log("New save created and activeSaveId set:", save.id);
         window.location.href = 'career.html';
@@ -460,8 +489,32 @@ export function finalizeLoad(foundSave, actualId) {
     const kickoffState = getKickoffState(actualId);
     foundSave.kickoffState = kickoffState;
     
-    // Sync back to localStorage for consistency
-    localStorage.setItem(`save_${actualId}`, JSON.stringify(foundSave));
+    // Sync back to localStorage for consistency, handling quota errors
+    try {
+        const saveToStore = { ...foundSave };
+        
+        // Optimization: For localStorage, store a slimmed-down version if it's too big
+        if (saveToStore.players && saveToStore.players.length > 500) {
+            console.log("finalizeLoad: Slimming down localStorage backup to save space.");
+            const userTeamId = String(foundSave.teamId);
+            const userTeamPlayers = saveToStore.players.filter(p => String(p.teamId) === userTeamId);
+            const otherPlayers = saveToStore.players.filter(p => String(p.teamId) !== userTeamId);
+            saveToStore.players = [...userTeamPlayers, ...otherPlayers.slice(0, 100)];
+        }
+
+        localStorage.setItem(`save_${actualId}`, JSON.stringify(saveToStore));
+    } catch (lsError) {
+        console.warn("finalizeLoad: localStorage quota exceeded while syncing. Data remains in memory and API.", lsError);
+        // Try to free space by removing other saves if this is the active one
+        try {
+            const keys = Object.keys(localStorage);
+            const otherSaveKeys = keys.filter(k => k.startsWith('save_') && k !== `save_${actualId}`);
+            if (otherSaveKeys.length > 0) {
+                otherSaveKeys.forEach(k => localStorage.removeItem(k));
+                localStorage.setItem(`save_${actualId}`, JSON.stringify(foundSave));
+            }
+        } catch (e) {}
+    }
     
     console.log(`finalizeLoad: Completed. Final player count: ${foundSave.players.length}`);
     return foundSave;
@@ -553,9 +606,36 @@ export async function saveCareer(updatedSave) {
         updatedSave.kickoffState = getKickoffState(updatedSave.id);
     }
     
-    // Always save to localStorage as a primary backup/source
-    localStorage.setItem(`save_${updatedSave.id}`, JSON.stringify(updatedSave));
-    localStorage.setItem('activeSaveId', String(updatedSave.id));
+    // Always save to localStorage as a primary backup/source, but handle quota errors
+    try {
+        const saveToStore = { ...updatedSave };
+        
+        // Optimization: For localStorage, store a slimmed-down version if it's too big
+        if (saveToStore.players && saveToStore.players.length > 500) {
+            console.log("saveCareer: Slimming down localStorage backup to save space.");
+            const userTeamPlayers = saveToStore.players.filter(p => String(p.teamId) === String(saveToStore.teamId));
+            const otherPlayers = saveToStore.players.filter(p => String(p.teamId) !== String(saveToStore.teamId));
+            saveToStore.players = [...userTeamPlayers, ...otherPlayers.slice(0, 100)];
+        }
+
+        localStorage.setItem(`save_${updatedSave.id}`, JSON.stringify(saveToStore));
+        localStorage.setItem('activeSaveId', String(updatedSave.id));
+    } catch (lsError) {
+        console.warn("saveCareer: localStorage quota exceeded. Relying on API for full data.", lsError);
+        // Clean up old saves to make room
+        try {
+            const keys = Object.keys(localStorage);
+            const saveKeys = keys.filter(k => k.startsWith('save_') && k !== `save_${updatedSave.id}`);
+            if (saveKeys.length > 0) {
+                console.log(`saveCareer: Removing ${saveKeys.length} old saves from localStorage to free space.`);
+                saveKeys.forEach(k => localStorage.removeItem(k));
+                // Try saving again
+                localStorage.setItem(`save_${updatedSave.id}`, JSON.stringify(updatedSave));
+            }
+        } catch (e) {
+            console.error("saveCareer: Failed to free space in localStorage.", e);
+        }
+    }
 
     try {
         const response = await fetch(`${API_BASE_URL}/saves`, {
@@ -614,22 +694,25 @@ function createWelcomeMessage2(team, players) {
     // Use .overall or .rating.overall for rating display
     const getPRating = (p) => {
         if (!p) return 75;
-        // If it's a Player instance, use the overall getter
-        if (typeof p.overall === 'number') return p.overall;
-        // If it has a rating object with overall property
-        if (p.rating && typeof p.rating.overall === 'number') return p.rating.overall;
-        // If it has a rating object with calculateOverall method (PlayerRating instance)
-        if (p.rating && typeof p.rating.calculateOverall === 'function') return p.rating.calculateOverall();
-        // If it has ratings object
+        // If it's a Player instance, use the overall getter (already rounded)
+        if (typeof p.getOverallRating === 'function') return p.getOverallRating();
+        if (typeof p.overall === 'number' && String(p.overall).includes('.')) {
+            // If it's a raw number with many decimals, round it
+            return Math.round(p.overall * 10) / 10;
+        }
+        // If it has a rating object
         const r = p.rating || p.ratings;
-        if (r && typeof r.aim === 'number') {
-            const sum = (Number(r.aim) || 50) + (Number(r.movement) || 50) + (Number(r.gameSense) || 50) + 
-                        (Number(r.clutch) || 50) + (Number(r.aggression) || 50) + (Number(r.utility) || 50) + 
-                        (Number(r.mental) || 50) + (Number(r.teamwork) || 50) + (Number(r.consistency) || 50);
-            return Math.round(sum / 9);
+        if (r) {
+            if (typeof r.overall === 'number') return Math.round(r.overall * 10) / 10;
+            if (typeof r.aim === 'number') {
+                const sum = (Number(r.aim) || 50) + (Number(r.movement) || 50) + (Number(r.gameSense) || 50) + 
+                            (Number(r.clutch) || 50) + (Number(r.aggression) || 50) + (Number(r.utility) || 50) + 
+                            (Number(r.mental) || 50) + (Number(r.teamwork) || 50) + (Number(r.consistency) || 50);
+                return Math.round((sum / 9) * 10) / 10;
+            }
         }
         // Fallback to overall property if it's just a number
-        if (typeof p.overall === 'number') return p.overall;
+        if (typeof p.overall === 'number') return Math.round(p.overall * 10) / 10;
         return 75;
     };
 
@@ -652,16 +735,137 @@ function createKickoffPreviewMessage() {
     };
 }
 
-function createChampionshipContendersMessage() {
-    // Logic to select top 5 teams based on power and potential
-    // For now, using static teams as a placeholder
-    const topTeams = teams.sort((a, b) => (b.power + b.potential) - (a.power + a.potential)).slice(0, 5);
-    const topTeamNames = topTeams.map(t => t.name).join("\n");
+function createChampionshipContendersMessage(players = []) {
+    // If no players provided, fall back to base team stats with some randomness
+    let teamStats;
+    if (players.length > 0) {
+        teamStats = teams.map(t => {
+            const teamPlayers = players.filter(p => String(p.teamId) === String(t.id));
+            const avgPower = teamPlayers.length > 0 
+                ? Math.round((teamPlayers.reduce((sum, p) => sum + (p.overall || 75), 0) / teamPlayers.length) * 10) / 10
+                : t.power;
+            const avgPotential = teamPlayers.length > 0
+                ? Math.round((teamPlayers.reduce((sum, p) => sum + (p.potential || 80), 0) / teamPlayers.length) * 10) / 10
+                : t.potential;
+            
+            // Add a small random variance (±3) for variety in each new save
+            const variance = (Math.random() * 6) - 3;
+            
+            return {
+                ...t,
+                currentPower: avgPower,
+                currentPotential: avgPotential,
+                strength: Math.round((((avgPower + avgPotential) / 2) + variance) * 10) / 10
+            };
+        });
+    } else {
+        teamStats = teams.map(t => ({
+            ...t,
+            currentPower: t.power,
+            currentPotential: t.potential,
+            strength: Math.round((((t.power + t.potential) / 2) + ((Math.random() * 6) - 3)) * 10) / 10
+        }));
+    }
+
+    const contenders = teamStats.sort((a, b) => b.strength - a.strength).slice(0, 5);
+    
+    let htmlBody = `
+        <div class="contenders-report">
+            <p style="margin-bottom: 25px; color: rgba(236, 232, 225, 0.8); line-height: 1.6;">
+                As we approach the new season, the analysts at the League News have compiled the definitive list of championship contenders. These five organizations have demonstrated the raw talent and tactical depth required to lift the trophy.
+            </p>
+            <div class="contenders-list" style="display: flex; flex-direction: column; gap: 20px;">
+    `;
+
+    const reasonPools = {
+        elite: [
+            "A global powerhouse with a roster that defines the current meta. Their mechanical ceiling is unmatched.",
+            "The undisputed giants of the league. Every player on this roster is a legitimate superstar in their own right.",
+            "A terrifying combination of raw aim and flawless utility usage. They are currently the benchmark for excellence.",
+            "A dynasty in the making. Their tactical depth is only rivaled by their individual fragging power."
+        ],
+        veteran: [
+            "A veteran-heavy squad whose experience and discipline make them a nightmare to play against in high-stakes matches.",
+            "Masters of the late-game. This team's composure under pressure is their greatest weapon against less experienced rivals.",
+            "A battle-hardened core that knows exactly how to exploit the smallest mistakes in their opponents' setups.",
+            "They play the 'boring' but perfect Valorant. Their fundamental execution is so clean it leaves no room for counter-play."
+        ],
+        rising: [
+            "The league's most dangerous young core. Their rapid improvement suggests they will be unstoppable by the time playoffs arrive.",
+            "A high-octane roster of rising stars. What they lack in experience, they more than make up for in sheer mechanical audacity.",
+            "An explosive group of newcomers who are currently re-writing the tactical playbook with their aggressive style.",
+            "Fearless and unpredictable. This young squad thrives in chaos and can out-aim almost anyone on their day."
+        ],
+        balanced: [
+            "A perfectly balanced organization with deep strategic layers and a consistent track record of excellence.",
+            "Renowned for their structural integrity. They play a disciplined style of Valorant that is incredibly difficult to break down.",
+            "A well-rounded squad where every player understands their role perfectly, creating a whole that is greater than the sum of its parts.",
+            "Masters of adaptation. This team can switch between aggressive and defensive styles mid-map without missing a beat."
+        ]
+    };
+
+    const usedReasons = new Set();
+    
+    contenders.forEach((team, index) => {
+        let reason = "";
+        const avgStrength = team.strength;
+        const logoUrl = teamLogos[team.name] || 'assets/team_logos/default.png';
+
+        let pool;
+        if (avgStrength >= 85) {
+            pool = reasonPools.elite;
+        } else if (team.currentPower > team.currentPotential + 2) {
+            pool = reasonPools.veteran;
+        } else if (team.currentPotential > team.currentPower + 2) {
+            pool = reasonPools.rising;
+        } else {
+            pool = reasonPools.balanced;
+        }
+        
+        // Find a reason that hasn't been used in this report
+        let availableReasons = pool.filter(r => !usedReasons.has(r));
+        
+        // Fallback if somehow all in pool are used (unlikely with 4 per pool for 5 teams total)
+        if (availableReasons.length === 0) {
+            availableReasons = pool;
+        }
+        
+        reason = availableReasons[Math.floor(Math.random() * availableReasons.length)];
+        usedReasons.add(reason);
+
+        htmlBody += `
+            <div class="contender-item" style="display: flex; align-items: center; gap: 20px; background: rgba(255, 255, 255, 0.03); padding: 15px; border-left: 4px solid #ff4655;">
+            <div class="contender-rank" style="font-family: 'Valorant', sans-serif; font-size: 24px; color: #ff4655; min-width: 30px;">#${index + 1}</div>
+            <img src="${logoUrl}" alt="${team.name}" style="width: 60px; height: 60px; object-fit: contain; filter: drop-shadow(0 0 10px rgba(0,0,0,0.5));" />
+            <div class="contender-info" style="flex: 1;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 5px;">
+                    <h4 style="margin: 0; font-family: 'Valorant', sans-serif; color: #ece8e1; font-size: 18px; text-transform: uppercase;">${team.name}</h4>
+                    <span style="font-size: 10px; color: #00f6ff; background: rgba(0, 246, 255, 0.1); padding: 2px 8px; border-radius: 10px; text-transform: uppercase;">${team.region}</span>
+                </div>
+                <div style="font-size: 11px; color: rgba(236, 232, 225, 0.5); margin-bottom: 8px; font-weight: bold;">
+                    RATING: <span style="color: #00ff85;">${team.currentPower} PWR</span> / <span style="color: #ffb900;">${team.currentPotential} POT</span>
+                </div>
+                <div style="font-size: 13px; color: rgba(236, 232, 225, 0.7); font-style: italic; line-height: 1.4;">
+                    "${reason}"
+                </div>
+            </div>
+        </div>
+    `;
+    });
+
+    htmlBody += `
+            </div>
+            <p style="margin-top: 30px; text-align: center; color: #ff4655; font-family: 'Valorant', sans-serif; letter-spacing: 1px; font-size: 14px;">
+                KEEP A CLOSE EYE ON THESE TEAMS AS THE SEASON UNFOLDS.
+            </p>
+        </div>
+    `;
 
     return {
         sender: "League News",
-        subject: "Contenders for the Championship!",
-        body: `The stage is set for another exciting season! Our latest report reveals the top 5 teams primed for a championship run.\n\nHere are the teams expected to take it all this season:\n\n${topTeamNames}`
+        subject: "S1 Report: Championship Contenders",
+        body: htmlBody,
+        contentType: 'html'
     };
 }
 

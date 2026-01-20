@@ -12,7 +12,7 @@ export class PlayerRating {
         
         // Potential should always be at least the current overall
         const currentOverall = this.calculateOverall();
-        this.potential = potential || Math.max(currentOverall, 70);
+        this.potential = Math.round((potential || Math.max(currentOverall, 70)) * 10) / 10;
     }
 
     // Generate random ratings for a new player
@@ -40,7 +40,8 @@ export class PlayerRating {
     }
 
     calculateOverall() {
-        return Math.round((this.aim + this.movement + this.gameSense + this.clutch + this.aggression + this.utility + this.mental + this.teamwork + this.consistency) / 9);
+        const avg = (this.aim + this.movement + this.gameSense + this.clutch + this.aggression + this.utility + this.mental + this.teamwork + this.consistency) / 9;
+        return Math.round(avg * 10) / 10;
     }
 
     get overall() {
@@ -80,6 +81,35 @@ export class PlayerRating {
             Number(ratingData?.potential ?? 70)
         );
         return ratings;
+    }
+
+    // New development logic
+    develop() {
+        // Higher potential means faster and more likely growth
+        const growthChance = (this.potential / 100) * 0.4; // Up to 40% chance of growth
+        const declineChance = (1 - (this.potential / 100)) * 0.1; // Small chance of decline if potential is low
+
+        const stats = ['aim', 'movement', 'gameSense', 'clutch', 'aggression', 'utility', 'mental', 'teamwork', 'consistency'];
+        
+        stats.forEach(stat => {
+            if (Math.random() < growthChance) {
+                // Grow by 0.1 to 1.5 points, rounded to 1 decimal place
+                const growth = Math.random() * 1.4 + 0.1;
+                this[stat] = Math.round(Math.min(99, this[stat] + growth) * 10) / 10;
+            } else if (Math.random() < declineChance) {
+                // Small chance to decline slightly, rounded to 1 decimal place
+                const decline = Math.random() * 0.5;
+                this[stat] = Math.round(Math.max(1, this[stat] - decline) * 10) / 10;
+            }
+        });
+
+        // Potential naturally declines very slowly as player nears it
+        if (this.calculateOverall() >= this.potential - 5) {
+            this.potential = Math.max(this.calculateOverall(), this.potential - 0.05);
+        }
+
+        // Update potential to be at least overall, and round it
+        this.potential = Math.round(Math.max(this.potential, this.overall) * 10) / 10;
     }
 }
 
@@ -277,7 +307,8 @@ export class Player {
         // This is critical for preserving nationality, age, etc.
         Object.keys(data).forEach(key => {
             // Don't overwrite the complex objects we just handled
-            if (['rating', 'ratings', 'stats'].includes(key)) return;
+            // AND skip read-only getters like 'overall' and 'potential'
+            if (['rating', 'ratings', 'stats', 'overall', 'potential'].includes(key)) return;
             
             // For simple properties, if they exist in data, copy them
             if (data[key] !== undefined && data[key] !== null) {

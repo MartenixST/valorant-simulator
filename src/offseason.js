@@ -14,11 +14,18 @@ function updateActiveSave(updatedSave) {
   console.log("updateActiveSave: Received updatedSave:", updatedSave);
   try {
     if (updatedSave && updatedSave.id) {
-      localStorage.setItem(`save_${updatedSave.id}`, JSON.stringify(updatedSave));
-      console.log("updateActiveSave: Successfully updated and stored save.");
+      const saveToStore = { ...updatedSave };
+      if (saveToStore.players && saveToStore.players.length > 500) {
+        const userTeamId = String(updatedSave.teamId);
+        const userTeamPlayers = saveToStore.players.filter(p => String(p.teamId) === userTeamId);
+        const otherPlayers = saveToStore.players.filter(p => String(p.teamId) !== userTeamId);
+        saveToStore.players = [...userTeamPlayers, ...otherPlayers.slice(0, 100)];
+      }
+      localStorage.setItem(`save_${updatedSave.id}`, JSON.stringify(saveToStore));
+      console.log("updateActiveSave: Successfully updated and stored save (slimmed).");
     }
   } catch (e) {
-    console.error("updateActiveSave: Error updating active save:", e);
+    console.warn("updateActiveSave: localStorage quota exceeded", e);
   }
 }
 

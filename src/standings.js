@@ -36,9 +36,18 @@ export function getActiveSave() {
 function updateActiveSave(updatedSave) {
   try {
     if (updatedSave && updatedSave.id) {
-      localStorage.setItem(`save_${updatedSave.id}`, JSON.stringify(updatedSave));
+      const saveToStore = { ...updatedSave };
+      if (saveToStore.players && saveToStore.players.length > 500) {
+        const userTeamId = String(updatedSave.teamId);
+        const userTeamPlayers = saveToStore.players.filter(p => String(p.teamId) === userTeamId);
+        const otherPlayers = saveToStore.players.filter(p => String(p.teamId) !== userTeamId);
+        saveToStore.players = [...userTeamPlayers, ...otherPlayers.slice(0, 100)];
+      }
+      localStorage.setItem(`save_${updatedSave.id}`, JSON.stringify(saveToStore));
     }
-  } catch (e) {}
+  } catch (e) {
+    console.warn("updateActiveSave: localStorage quota exceeded", e);
+  }
 }
 
 function shuffleArray(array) {
@@ -181,7 +190,7 @@ function showTeamRoster(teamName) {
             player.rating.mental, player.rating.teamwork, player.rating.consistency
           ];
           const sum = stats.reduce((acc, curr) => acc + (Number(curr) || 50), 0);
-          ovr = Math.round(sum / 9);
+          ovr = Math.round((sum / 9) * 10) / 10;
         } else if (typeof player.rating === 'number') {
           ovr = player.rating;
         }

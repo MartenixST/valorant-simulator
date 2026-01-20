@@ -77,7 +77,17 @@ export function getEventsState() {
   try {
     const saves = JSON.parse(localStorage.getItem('careerSaves')) || [];
     const idx = saves.findIndex(s => String(s.id) === String(save.id));
-    if (idx !== -1) { saves[idx] = save; localStorage.setItem('careerSaves', JSON.stringify(saves)); }
+    if (idx !== -1) { 
+      const saveToStore = { ...save };
+      if (saveToStore.players && saveToStore.players.length > 500) {
+        const userTeamId = String(save.teamId);
+        const userTeamPlayers = saveToStore.players.filter(p => String(p.teamId) === userTeamId);
+        const otherPlayers = saveToStore.players.filter(p => String(p.teamId) !== userTeamId);
+        saveToStore.players = [...userTeamPlayers, ...otherPlayers.slice(0, 100)];
+      }
+      saves[idx] = saveToStore; 
+      localStorage.setItem('careerSaves', JSON.stringify(saves)); 
+    }
   } catch (e) {}
   return save.events;
 }
@@ -92,7 +102,17 @@ function setEventsBestOf(value) {
     const save = getActiveSave();
     const saves = JSON.parse(localStorage.getItem('careerSaves')) || [];
     const idx = saves.findIndex(s => String(s.id) === String(save.id));
-    if (idx !== -1) { saves[idx] = save; localStorage.setItem('careerSaves', JSON.stringify(saves)); }
+    if (idx !== -1) { 
+      const saveToStore = { ...save };
+      if (saveToStore.players && saveToStore.players.length > 500) {
+        const userTeamId = String(save.teamId);
+        const userTeamPlayers = saveToStore.players.filter(p => String(p.teamId) === userTeamId);
+        const otherPlayers = saveToStore.players.filter(p => String(p.teamId) !== userTeamId);
+        saveToStore.players = [...userTeamPlayers, ...otherPlayers.slice(0, 100)];
+      }
+      saves[idx] = saveToStore; 
+      localStorage.setItem('careerSaves', JSON.stringify(saves)); 
+    }
   } catch (e) {}
   renderBracket();
 }
@@ -147,7 +167,17 @@ function simulateAllEvents() {
     const save = getActiveSave();
     const saves = JSON.parse(localStorage.getItem('careerSaves')) || [];
     const idx = saves.findIndex(s => String(s.id) === String(save.id));
-    if (idx !== -1) { saves[idx] = save; localStorage.setItem('careerSaves', JSON.stringify(saves)); }
+    if (idx !== -1) { 
+      const saveToStore = { ...save };
+      if (saveToStore.players && saveToStore.players.length > 500) {
+        const userTeamId = String(save.teamId);
+        const userTeamPlayers = saveToStore.players.filter(p => String(p.teamId) === userTeamId);
+        const otherPlayers = saveToStore.players.filter(p => String(p.teamId) !== userTeamId);
+        saveToStore.players = [...userTeamPlayers, ...otherPlayers.slice(0, 100)];
+      }
+      saves[idx] = saveToStore; 
+      localStorage.setItem('careerSaves', JSON.stringify(saves)); 
+    }
   } catch (e) {}
 
   // Re-render bracket with winners present
@@ -264,7 +294,17 @@ export function persistEvents() {
     const save = getActiveSave();
     const saves = JSON.parse(localStorage.getItem('careerSaves')) || [];
     const idx = saves.findIndex(s => String(s.id) === String(save.id));
-    if (idx !== -1) { saves[idx] = save; localStorage.setItem('careerSaves', JSON.stringify(saves)); }
+    if (idx !== -1) { 
+      const saveToStore = { ...save };
+      if (saveToStore.players && saveToStore.players.length > 500) {
+        const userTeamId = String(save.teamId);
+        const userTeamPlayers = saveToStore.players.filter(p => String(p.teamId) === userTeamId);
+        const otherPlayers = saveToStore.players.filter(p => String(p.teamId) !== userTeamId);
+        saveToStore.players = [...userTeamPlayers, ...otherPlayers.slice(0, 100)];
+      }
+      saves[idx] = saveToStore; 
+      localStorage.setItem('careerSaves', JSON.stringify(saves)); 
+    }
   } catch (e) {}
 }
 

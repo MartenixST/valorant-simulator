@@ -103,7 +103,9 @@ const CareerContent = ({ activeSection, activeSave, setActiveSave }) => {
                   <>
                     <h3>{selectedMessage.subject || 'New Message'}</h3>
                     <div className="email-body">
-                      {selectedMessage.body ? selectedMessage.body.split('\n').map((line, index) => (
+                      {selectedMessage.contentType === 'html' ? (
+                        <div dangerouslySetInnerHTML={{ __html: selectedMessage.body }} />
+                      ) : selectedMessage.body ? selectedMessage.body.split('\n').map((line, index) => (
                         <p key={index}>{line}</p>
                       )) : ''}
                     </div>

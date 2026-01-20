@@ -83,85 +83,95 @@ app.post('/api/saves', (req, res) => {
   const { id, manager, team, region, season, phase, week, players, inbox, teamId, budget } = req.body;
   const fullData = JSON.stringify(req.body);
 
-  // Use a single transaction for everything
-  db.serialize(() => {
-    // BEGIN IMMEDIATE helps prevent "database is locked" by starting the write transaction early
-    db.run("BEGIN IMMEDIATE TRANSACTION", (err) => {
-      if (err) {
-        // If we get "cannot start a transaction within a transaction", it means one is already active
-        // We can just proceed without BEGIN or return an error. 
-        // For simplicity and safety in a single-user app, we'll log it and try to proceed if it's just a busy error
-        if (err.message.includes('within a transaction')) {
-           console.log("Transaction already in progress, proceeding...");
-        } else {
-           return res.status(500).json({ error: "Transaction start failed: " + err.message });
-        }
-      }
-    });
-
-    db.run(`INSERT OR REPLACE INTO saves (id, manager, team, region, season, phase, week, teamId, budget, data) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, 
-      [id, manager, team, region, season, phase, week, teamId, budget, fullData], function(err) {
-      if (err) {
-        console.error("Saves insert error:", err);
-        db.run("ROLLBACK");
-        return res.status(500).json({ error: err.message });
-      }
-
-      // Clear existing data for this save
-      db.run(`DELETE FROM players WHERE save_id = ?`, [id]);
-      db.run(`DELETE FROM inbox_messages WHERE save_id = ?`, [id]);
-      
-      // Insert players
-      if (players && players.length > 0) {
-        const playerStmt = db.prepare(`INSERT OR REPLACE INTO players (id, save_id, name, role, team, teamId, ratings, weapon, shield) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`);
-        
-        try {
-          players.forEach((player, i) => {
-            const ratingsStr = typeof player.ratings === 'object' ? JSON.stringify(player.ratings) : (player.ratings || "{}");
-            const weaponStr = typeof player.weapon === 'object' ? JSON.stringify(player.weapon) : (player.weapon || "{}");
-            const shieldStr = typeof player.shield === 'object' ? JSON.stringify(player.shield) : (player.shield || "{}");
-            
-            const playerId = player.id || `${id}_${player.name.replace(/\s+/g, '_')}_${i}`;
-            
-            playerStmt.run(playerId, id, player.name, player.role, player.team || null, player.teamId || null, ratingsStr, weaponStr, shieldStr);
-          });
-          playerStmt.finalize();
-        } catch (err) {
-          console.error("Insertion error:", err);
-          db.run("ROLLBACK");
-          // We don't return here yet because we're inside db.serialize
-        }
-      }
-
-      // Insert inbox
-      if (inbox && inbox.length > 0) {
-        const inboxStmt = db.prepare(`INSERT INTO inbox_messages (save_id, sender, subject, body) VALUES (?, ?, ?, ?)`);
-        inbox.forEach(message => {
-          inboxStmt.run(id, message.sender, message.subject, message.body);
-        });
-        inboxStmt.finalize();
-      }
-
-      // Final commit
-      db.run("COMMIT", (err) => {
-        if (err) {
-          // If commit fails, rollback
-          db.run("ROLLBACK");
-          if (!res.headersSent) {
-            return res.status(500).json({ error: "Failed to commit transaction: " + err.message });
+  // We use a helper to handle the transaction to avoid overlapping issues
+  const runTransaction = async () => {
+    return new Promise((resolve, reject) => {
+      db.serialize(() => {
+        // Use BEGIN IMMEDIATE to lock the database for writing early
+        db.run("BEGIN IMMEDIATE TRANSACTION", (err) => {
+          if (err) {
+            console.error("Failed to begin transaction:", err);
+            return reject(err);
           }
-          return;
-        }
-        
-        // Optional cleanup of orphaned records (async, outside transaction)
-        db.run(`DELETE FROM players WHERE save_id NOT IN (SELECT id FROM saves)`);
-        
-        if (!res.headersSent) {
-          res.status(200).json({ message: 'Career saved successfully', id: id });
-        }
+        });
+
+        db.run(`INSERT OR REPLACE INTO saves (id, manager, team, region, season, phase, week, teamId, budget, data) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, 
+          [id, manager, team, region, season, phase, week, teamId, budget, fullData], (err) => {
+            if (err) {
+              return db.run("ROLLBACK", () => reject(err));
+            }
+
+            db.run(`DELETE FROM players WHERE save_id = ?`, [id], (err) => {
+              if (err) {
+                return db.run("ROLLBACK", () => reject(err));
+              }
+
+              db.run(`DELETE FROM inbox_messages WHERE save_id = ?`, [id], (err) => {
+                if (err) {
+                  return db.run("ROLLBACK", () => reject(err));
+                }
+
+                // Insert players
+                if (players && players.length > 0) {
+                  const playerStmt = db.prepare(`INSERT OR REPLACE INTO players (id, save_id, name, role, team, teamId, ratings, weapon, shield) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+                  let playerError = null;
+                  players.forEach((player, i) => {
+                    if (playerError) return;
+                    const ratingsStr = typeof player.ratings === 'object' ? JSON.stringify(player.ratings) : (player.ratings || "{}");
+                    const weaponStr = typeof player.weapon === 'object' ? JSON.stringify(player.weapon) : (player.weapon || "{}");
+                    const shieldStr = typeof player.shield === 'object' ? JSON.stringify(player.shield) : (player.shield || "{}");
+                    const playerId = player.id || `${id}_${player.name.replace(/\s+/g, '_')}_${i}`;
+                    playerStmt.run(playerId, id, player.name, player.role, player.team || null, player.teamId || null, ratingsStr, weaponStr, shieldStr, (err) => {
+                      if (err) playerError = err;
+                    });
+                  });
+                  playerStmt.finalize();
+                  if (playerError) return db.run("ROLLBACK", () => reject(playerError));
+                }
+
+                // Insert inbox
+                if (inbox && inbox.length > 0) {
+                  const inboxStmt = db.prepare(`INSERT INTO inbox_messages (save_id, sender, subject, body) VALUES (?, ?, ?, ?)`);
+                  let inboxError = null;
+                  inbox.forEach(message => {
+                    if (inboxError) return;
+                    inboxStmt.run(id, message.sender, message.subject, message.body, (err) => {
+                      if (err) inboxError = err;
+                    });
+                  });
+                  inboxStmt.finalize();
+                  if (inboxError) return db.run("ROLLBACK", () => reject(inboxError));
+                }
+
+                db.run("COMMIT", (err) => {
+                  if (err) {
+                    // If commit fails, try rollback but catch the error if no transaction is active
+                    db.run("ROLLBACK", (rollbackErr) => {
+                      reject(err);
+                    });
+                  } else {
+                    resolve();
+                  }
+                });
+              });
+            });
+          }
+        );
       });
     });
-  });
+  };
+
+  runTransaction()
+    .then(() => {
+      res.status(200).json({ message: 'Career saved successfully', id: id });
+    })
+    .catch((err) => {
+      console.error("Save transaction failed:", err);
+      // Only send error if headers haven't been sent
+      if (!res.headersSent) {
+        res.status(500).json({ error: err.message });
+      }
+    });
 });
 
 // API to get all career saves

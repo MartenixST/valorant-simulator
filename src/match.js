@@ -62,7 +62,11 @@ export function simulateMatch() {
       const matchIndex = kickoffState.matches.findIndex(m => m.id === matchId);
       if (matchIndex !== -1) {
         kickoffState.matches[matchIndex].winner = result.winner.name;
-        localStorage.setItem('kickoffState', JSON.stringify(kickoffState));
+        try {
+          localStorage.setItem('kickoffState', JSON.stringify(kickoffState));
+        } catch (e) {
+          console.warn("simulateMatch: localStorage quota exceeded", e);
+        }
         log(`Updated kickoff state: ${result.winner.name} won match ${matchId}`);
       }
     }

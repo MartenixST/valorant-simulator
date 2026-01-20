@@ -120,6 +120,10 @@ export function getTeamsWithPlayers(forceRefresh = false) {
     
     // If not, generate new teams with players
     const teamsWithPlayers = teams.map(team => generateTeamWithPlayers(team));
-    localStorage.setItem('teamsWithPlayers', JSON.stringify(teamsWithPlayers));
+    try {
+        localStorage.setItem('teamsWithPlayers', JSON.stringify(teamsWithPlayers));
+    } catch (e) {
+        console.warn("getAllTeamsWithPlayers: localStorage quota exceeded", e);
+    }
     return teamsWithPlayers;
 }

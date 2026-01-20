@@ -135,12 +135,12 @@ export function renderTeamRoster(providedSave = null) {
   
   // Helper to get overall rating reliably from plain objects
   const getOverall = (p) => {
-    if (p.overall) return p.overall;
+    if (p.overall) return Math.round(p.overall * 10) / 10;
     if (p.rating) {
       const r = p.rating;
       const stats = [r.aim, r.movement, r.gameSense, r.clutch, r.aggression, r.utility, r.mental, r.teamwork, r.consistency];
       const sum = stats.reduce((acc, val) => acc + (val || 50), 0);
-      return Math.round(sum / 9);
+      return Math.round((sum / 9) * 10) / 10;
     }
     return p.skill || 0;
   };
@@ -163,7 +163,7 @@ export function renderTeamRoster(providedSave = null) {
 
   function renderPlayerCard(player, isSub = false) {
     const overall = getOverall(player);
-    const potential = player.potential || player.rating?.potential || 0;
+    const potential = Math.round((player.potential || player.rating?.potential || 0) * 10) / 10;
     
     // Helper for rating colors
     const getRatingClass = (val) => {
@@ -312,7 +312,7 @@ export function renderTeamRoster(providedSave = null) {
         // Recalculate overall
         const stats = [player.rating.aim, player.rating.movement, player.rating.gameSense, player.rating.clutch, player.rating.aggression, player.rating.utility, player.rating.mental, player.rating.teamwork, player.rating.consistency];
         const sum = stats.reduce((acc, val) => acc + (val || 50), 0);
-        player.overall = Math.round(sum / 9);
+        player.overall = Math.round((sum / 9) * 10) / 10;
       } else {
         player.skill = Math.max(0, (player.skill || 0) - penalty);
         player.overall = player.skill;
@@ -480,7 +480,7 @@ export function renderTeamRoster(providedSave = null) {
       // Re-calculate overall
       const stats = [player.rating.aim, player.rating.movement, player.rating.gameSense, player.rating.clutch, player.rating.aggression, player.rating.utility, player.rating.mental, player.rating.teamwork, player.rating.consistency];
       const sum = stats.reduce((acc, val) => acc + (val || 50), 0);
-      player.overall = Math.round(sum / 9);
+      player.overall = Math.round((sum / 9) * 10) / 10;
 
       saveCareer(activeSave);
 
