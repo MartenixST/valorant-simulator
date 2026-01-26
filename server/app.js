@@ -9,6 +9,9 @@ app.use(cors()); // Enable CORS for all routes
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
+// Global queue to prevent concurrent transactions on the same database connection
+let saveQueue = Promise.resolve();
+
 // Initialize SQLite database
 const db = new sqlite3.Database('./career.db', (err) => {
   if (err) {
@@ -84,93 +87,98 @@ app.post('/api/saves', (req, res) => {
   const fullData = JSON.stringify(req.body);
 
   // We use a helper to handle the transaction to avoid overlapping issues
-  const runTransaction = async () => {
+  const runTransaction = () => {
     return new Promise((resolve, reject) => {
       db.serialize(() => {
-        // Use BEGIN IMMEDIATE to lock the database for writing early
+        let hasError = false;
+        let transactionStarted = false;
+        
+        const handleError = (err) => {
+          if (hasError) return;
+          hasError = true;
+          
+          if (transactionStarted) {
+            db.run("ROLLBACK", () => {
+              reject(err);
+            });
+          } else {
+            reject(err);
+          }
+        };
+
         db.run("BEGIN IMMEDIATE TRANSACTION", (err) => {
           if (err) {
             console.error("Failed to begin transaction:", err);
             return reject(err);
           }
+          transactionStarted = true;
         });
 
         db.run(`INSERT OR REPLACE INTO saves (id, manager, team, region, season, phase, week, teamId, budget, data) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, 
           [id, manager, team, region, season, phase, week, teamId, budget, fullData], (err) => {
-            if (err) {
-              return db.run("ROLLBACK", () => reject(err));
-            }
+            if (err) return handleError(err);
+          });
 
-            db.run(`DELETE FROM players WHERE save_id = ?`, [id], (err) => {
-              if (err) {
-                return db.run("ROLLBACK", () => reject(err));
-              }
+        db.run(`DELETE FROM players WHERE save_id = ?`, [id], (err) => {
+          if (err) return handleError(err);
+        });
 
-              db.run(`DELETE FROM inbox_messages WHERE save_id = ?`, [id], (err) => {
-                if (err) {
-                  return db.run("ROLLBACK", () => reject(err));
-                }
+        db.run(`DELETE FROM inbox_messages WHERE save_id = ?`, [id], (err) => {
+          if (err) return handleError(err);
+        });
 
-                // Insert players
-                if (players && players.length > 0) {
-                  const playerStmt = db.prepare(`INSERT OR REPLACE INTO players (id, save_id, name, role, team, teamId, ratings, weapon, shield) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`);
-                  let playerError = null;
-                  players.forEach((player, i) => {
-                    if (playerError) return;
-                    const ratingsStr = typeof player.ratings === 'object' ? JSON.stringify(player.ratings) : (player.ratings || "{}");
-                    const weaponStr = typeof player.weapon === 'object' ? JSON.stringify(player.weapon) : (player.weapon || "{}");
-                    const shieldStr = typeof player.shield === 'object' ? JSON.stringify(player.shield) : (player.shield || "{}");
-                    const playerId = player.id || `${id}_${player.name.replace(/\s+/g, '_')}_${i}`;
-                    playerStmt.run(playerId, id, player.name, player.role, player.team || null, player.teamId || null, ratingsStr, weaponStr, shieldStr, (err) => {
-                      if (err) playerError = err;
-                    });
-                  });
-                  playerStmt.finalize();
-                  if (playerError) return db.run("ROLLBACK", () => reject(playerError));
-                }
-
-                // Insert inbox
-                if (inbox && inbox.length > 0) {
-                  const inboxStmt = db.prepare(`INSERT INTO inbox_messages (save_id, sender, subject, body) VALUES (?, ?, ?, ?)`);
-                  let inboxError = null;
-                  inbox.forEach(message => {
-                    if (inboxError) return;
-                    inboxStmt.run(id, message.sender, message.subject, message.body, (err) => {
-                      if (err) inboxError = err;
-                    });
-                  });
-                  inboxStmt.finalize();
-                  if (inboxError) return db.run("ROLLBACK", () => reject(inboxError));
-                }
-
-                db.run("COMMIT", (err) => {
-                  if (err) {
-                    // If commit fails, try rollback but catch the error if no transaction is active
-                    db.run("ROLLBACK", (rollbackErr) => {
-                      reject(err);
-                    });
-                  } else {
-                    resolve();
-                  }
-                });
-              });
+        // Insert players
+        if (players && players.length > 0) {
+          const playerStmt = db.prepare(`INSERT OR REPLACE INTO players (id, save_id, name, role, team, teamId, ratings, weapon, shield) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+          players.forEach((player, i) => {
+            if (hasError) return;
+            const ratingsStr = typeof player.ratings === 'object' ? JSON.stringify(player.ratings) : (player.ratings || "{}");
+            const weaponStr = typeof player.weapon === 'object' ? JSON.stringify(player.weapon) : (player.weapon || "{}");
+            const shieldStr = typeof player.shield === 'object' ? JSON.stringify(player.shield) : (player.shield || "{}");
+            const playerId = player.id || `${id}_${player.name.replace(/\s+/g, '_')}_${i}`;
+            playerStmt.run(playerId, id, player.name, player.role, player.team || null, player.teamId || null, ratingsStr, weaponStr, shieldStr, (err) => {
+              if (err) handleError(err);
             });
+          });
+          playerStmt.finalize();
+        }
+
+        // Insert inbox
+        if (inbox && inbox.length > 0) {
+          const inboxStmt = db.prepare(`INSERT INTO inbox_messages (save_id, sender, subject, body) VALUES (?, ?, ?, ?)`);
+          inbox.forEach(message => {
+            if (hasError) return;
+            inboxStmt.run(id, message.sender, message.subject, message.body, (err) => {
+              if (err) handleError(err);
+            });
+          });
+          inboxStmt.finalize();
+        }
+
+        db.run("COMMIT", (err) => {
+          if (hasError) return;
+          if (err) {
+            handleError(err);
+          } else {
+            resolve();
           }
-        );
+        });
       });
     });
   };
 
-  runTransaction()
+  // Add the transaction to the queue to ensure sequential execution
+  saveQueue = saveQueue.then(() => runTransaction())
     .then(() => {
       res.status(200).json({ message: 'Career saved successfully', id: id });
     })
     .catch((err) => {
       console.error("Save transaction failed:", err);
-      // Only send error if headers haven't been sent
       if (!res.headersSent) {
         res.status(500).json({ error: err.message });
       }
+      // Always return a resolved promise to keep the queue moving
+      return Promise.resolve();
     });
 });
 
