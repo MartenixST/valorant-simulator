@@ -1,12 +1,84 @@
 import React, { useState } from 'react';
 import { handleAiRosterChanges } from '../ai_manager.js';
 import { saveCareer, getKickoffState } from '../career_local_storage.jsx';
-import { Player } from '../simulation.js';
+import { Player, Team, MatchSimulator } from '../simulation.js';
 import { teams, teamLogos } from '../teams.js';
 import CareerLoadingOverlay from './CareerLoadingOverlay.jsx';
 
 const SimWeekButton = ({ activeSave, setActiveSave }) => {
   const [isSimulating, setIsSimulating] = useState(false);
+
+  // Helper to simulate a match and return player stats
+  const simulateAiMatch = (team1Data, team2Data, savePlayers) => {
+    // 1. Prepare Team objects
+    const t1 = new Team(team1Data.name, team1Data.id);
+    const t2 = new Team(team2Data.name, team2Data.id);
+
+    // 2. Assign players to teams
+    const t1Players = savePlayers.filter(p => String(p.teamId) === String(team1Data.id));
+    const t2Players = savePlayers.filter(p => String(p.teamId) === String(team2Data.id));
+
+    // Convert to Player instances
+    t1.players = t1Players.map(p => Player.fromJSON(p));
+    t2.players = t2Players.map(p => Player.fromJSON(p));
+
+    // 3. Simulate match (BO3)
+    let t1Maps = 0;
+    let t2Maps = 0;
+    const mapResults = [];
+    const allPlayerStats = {};
+
+    // Initialize stats tracking
+    [...t1.players, ...t2.players].forEach(p => {
+      allPlayerStats[p.id] = {
+        name: p.name,
+        teamId: p.teamId,
+        teamName: p.teamId === String(team1Data.id) ? team1Data.name : team2Data.name,
+        kills: 0,
+        deaths: 0,
+        assists: 0,
+        damage: 0,
+        hs: 0,
+        rounds: 0
+      };
+    });
+
+    while (t1Maps < 2 && t2Maps < 2) {
+      t1.score = 0;
+      t2.score = 0;
+      t1.side = 'attack';
+      t2.side = 'defense';
+      
+      const matchSim = new MatchSimulator(t1, t2);
+      matchSim.simulateMatch();
+
+      const mapScore = `${t1.score}-${t2.score}`;
+      mapResults.push({ score: mapScore });
+
+      if (t1.score >= 13) t1Maps++;
+      else t2Maps++;
+
+      // Update aggregated stats from this map
+      [...t1.players, ...t2.players].forEach(p => {
+        if (allPlayerStats[p.id]) {
+          allPlayerStats[p.id].kills += p.stats.kills;
+          allPlayerStats[p.id].deaths += p.stats.deaths;
+          allPlayerStats[p.id].assists += p.stats.assists;
+          allPlayerStats[p.id].damage += p.stats.damageDealt;
+          allPlayerStats[p.id].hs += p.stats.hs;
+          allPlayerStats[p.id].rounds += (t1.score + t2.score);
+        }
+      });
+    }
+
+    return {
+      winner: t1Maps > t2Maps ? team1Data.name : team2Data.name,
+      loser: t1Maps > t2Maps ? team2Data.name : team1Data.name,
+      score: `${t1Maps}-${t2Maps}`,
+      playerStats: allPlayerStats,
+      mapResults: mapResults
+    };
+  };
 
   const generateContendersMessage = (players) => {
     // Calculate current power/potential for ALL teams based on players in the save
@@ -14,10 +86,10 @@ const SimWeekButton = ({ activeSave, setActiveSave }) => {
         const teamPlayers = players.filter(p => String(p.teamId) === String(t.id));
         const avgPower = teamPlayers.length > 0 
             ? Math.round((teamPlayers.reduce((sum, p) => sum + (p.overall || 75), 0) / teamPlayers.length) * 10) / 10
-            : t.power;
+            : Math.round((t.power || 75) * 10) / 10;
         const avgPotential = teamPlayers.length > 0
             ? Math.round((teamPlayers.reduce((sum, p) => sum + (p.potential || 80), 0) / teamPlayers.length) * 10) / 10
-            : t.potential;
+            : Math.round((t.potential || 80) * 10) / 10;
             
         return {
             ...t,
@@ -122,7 +194,7 @@ const SimWeekButton = ({ activeSave, setActiveSave }) => {
         body: htmlBody,
         date: new Date().toLocaleDateString(),
         read: false,
-        isHtml: true
+        contentType: 'html'
     };
   };
 
@@ -139,6 +211,36 @@ const SimWeekButton = ({ activeSave, setActiveSave }) => {
       
       // 2. AI Roster Changes
       const { updatedSave: aiUpdatedSave, changes: rosterChanges } = handleAiRosterChanges(activeSave);
+
+      // 2.5 Simulate AI Team Matches
+      const simulatedMatches = [];
+      const aiTeams = teams.filter(t => String(t.id) !== String(activeSave.teamId));
+      
+      // Group teams by region and simulate some intra-regional matches
+      const regions = ["Americas", "EMEA", "Pacific", "China"];
+      regions.forEach(region => {
+        const regionalTeams = aiTeams.filter(t => t.region === region);
+        // Shuffle and pair up teams for some matches this week
+        const shuffled = [...regionalTeams].sort(() => 0.5 - Math.random());
+        for (let i = 0; i < shuffled.length - 1; i += 2) {
+          const t1 = shuffled[i];
+          const t2 = shuffled[i+1];
+          
+          // 30% chance of a match happening between these two this week
+          if (Math.random() < 0.3) {
+            const matchResult = simulateAiMatch(t1, t2, aiUpdatedSave.players);
+            simulatedMatches.push({
+              winner: matchResult.winner,
+              loser: matchResult.loser,
+              score: matchResult.score,
+              region: region,
+              playerStats: matchResult.playerStats,
+              mapResults: matchResult.mapResults,
+              tournamentName: "Regular Season"
+            });
+          }
+        }
+      });
 
       // 3. Player Development
       // Apply weekly stat fluctuations to all players
@@ -236,7 +338,14 @@ const SimWeekButton = ({ activeSave, setActiveSave }) => {
         pendingOffers: [], // Clear pending offers
         week: nextWeek,
         season: nextSeason,
-        kickoffState: getKickoffState(activeSave.id)
+        history: [...(aiUpdatedSave.history || []), ...simulatedMatches.map(m => ({
+          type: 'match',
+          week: activeSave.week,
+          text: `${m.winner} def. ${m.loser} (${m.score})`,
+          details: m
+        }))],
+        kickoffState: getKickoffState(activeSave.id),
+        regularSeasonMatches: [...(aiUpdatedSave.regularSeasonMatches || []), ...simulatedMatches]
       };
 
       // 6. Periodic Updates (Top 5 Contenders)
@@ -248,6 +357,14 @@ const SimWeekButton = ({ activeSave, setActiveSave }) => {
       // 7. Create a descriptive inbox message
       let messageContent = `Welcome to Week ${nextWeek} of Season ${nextSeason}.\n\n`;
       
+      if (simulatedMatches.length > 0) {
+        messageContent += "Recent League Results:\n";
+        simulatedMatches.forEach(m => {
+          messageContent += `- ${m.winner} defeated ${m.loser} (${m.score})\n`;
+        });
+        messageContent += "\n";
+      }
+
       if (rosterChanges.length > 0) {
         messageContent += "League News & Roster Changes:\n";
         rosterChanges.forEach(change => {

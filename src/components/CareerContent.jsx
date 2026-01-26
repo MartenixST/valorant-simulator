@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import Inbox from './Inbox.jsx';
 import SimWeekButton from './SimWeekButton.jsx'; // Import SimWeekButton
 import PlayersHub from './PlayersHub.jsx';
+import StatsHub from './StatsHub.jsx';
 import { teams, teamLogos } from '../teams.js';
 import { Player, Team, MatchSimulator, ROLES } from '../simulation.js';
 import { saveCareer, loadCareer } from '../career_local_storage.jsx';
@@ -9,6 +10,152 @@ import { renderTeamRoster } from '../career.js';
 
 const CareerContent = ({ activeSection, activeSave, setActiveSave }) => {
   const [selectedMessage, setSelectedMessage] = useState(null);
+  const [activeLeagueTab, setActiveLeagueTab] = useState('news');
+  const [leagueTickerItems, setLeagueTickerItems] = useState([]);
+
+  // Calculate dynamic league records based on all match data
+  const leagueRecords = React.useMemo(() => {
+    if (!activeSave) return { maxKills: null, maxADR: null, maxHS: null, maxAssists: null };
+
+    const records = {
+      maxKills: { value: 0, player: '-', team: '-' },
+      maxADR: { value: 0, player: '-', team: '-' },
+      maxHS: { value: 0, player: '-', team: '-' },
+      maxAssists: { value: 0, player: '-', team: '-' }
+    };
+
+    const processMatch = (match) => {
+      if (!match.playerStats) return;
+
+      // Calculate rounds for ADR
+      let rounds = 0;
+      if (match.mapResults) {
+        match.mapResults.forEach(m => {
+          const scores = m.score.split('-');
+          rounds += parseInt(scores[0]) + parseInt(scores[1]);
+        });
+      } else {
+        rounds = 24;
+      }
+
+      Object.entries(match.playerStats).forEach(([id, stats]) => {
+        // Max Kills
+        if (stats.kills > records.maxKills.value) {
+          records.maxKills = { value: stats.kills, player: stats.name, team: stats.teamName };
+        }
+        // Max ADR
+        const adr = rounds > 0 ? Math.round((stats.damage || stats.damageDealt || 0) / rounds) : 0;
+        if (adr > records.maxADR.value) {
+          records.maxADR = { value: adr, player: stats.name, team: stats.teamName };
+        }
+        // Max HS (count)
+        if (stats.hs > records.maxHS.value) {
+          records.maxHS = { value: stats.hs, player: stats.name, team: stats.teamName };
+        }
+        // Max Assists
+        if (stats.assists > records.maxAssists.value) {
+          records.maxAssists = { value: stats.assists, player: stats.name, team: stats.teamName };
+        }
+      });
+    };
+
+    // 1. Process Kickoff
+    if (activeSave.kickoffState?.series) {
+      Object.values(activeSave.kickoffState.series).forEach(processMatch);
+    }
+    // 2. Process Regular Season
+    if (activeSave.regularSeasonMatches) {
+      activeSave.regularSeasonMatches.forEach(processMatch);
+    }
+
+    return records;
+  }, [activeSave]);
+
+  // Calculate league leaders for awards
+  const leagueLeaders = React.useMemo(() => {
+    if (!activeSave) return { mvp: null, evp: null };
+
+    const playerMap = new Map();
+
+    const processMatch = (match) => {
+      if (!match.playerStats) return;
+      Object.entries(match.playerStats).forEach(([id, stats]) => {
+        if (!playerMap.has(id)) {
+          playerMap.set(id, { name: stats.name, team: stats.teamName, kills: 0, deaths: 0, maps: 0 });
+        }
+        const p = playerMap.get(id);
+        p.kills += stats.kills || 0;
+        p.deaths += stats.deaths || 0;
+        p.maps += 1;
+      });
+    };
+
+    if (activeSave.kickoffState?.series) {
+      Object.values(activeSave.kickoffState.series).forEach(processMatch);
+    }
+    if (activeSave.regularSeasonMatches) {
+      activeSave.regularSeasonMatches.forEach(processMatch);
+    }
+
+    const players = Array.from(playerMap.values())
+      .map(p => ({
+        ...p,
+        kd: p.deaths > 0 ? p.kills / p.deaths : p.kills,
+        score: (p.kills / p.maps) * (p.kills / (p.deaths || 1)) // Basic "performance score"
+      }))
+      .sort((a, b) => b.score - a.score);
+
+    return {
+      mvp: players[0] || null,
+      evp: players[1] || null
+    };
+  }, [activeSave]);
+
+  useEffect(() => {
+    if (!activeSave || activeSection !== 'career-league') return;
+    
+    const items = [];
+    
+    // 1. Add latest inbox messages (top 5)
+    if (activeSave.inbox && activeSave.inbox.length > 0) {
+      activeSave.inbox
+        .filter(m => m.subject.includes('League') || m.subject.includes('Report'))
+        .slice(0, 5)
+        .forEach(msg => {
+          items.push({
+            type: 'news',
+            text: msg.subject,
+            sender: msg.sender,
+            body: msg.body,
+            contentType: msg.contentType,
+            week: msg.week || activeSave.week
+          });
+        });
+    }
+    
+    // 2. Add roster changes from latest report
+    const latestReport = activeSave.inbox?.find(m => m.subject.includes('Week') && m.subject.includes('Report'));
+    if (latestReport && latestReport.body) {
+        const lines = latestReport.body.split('\n');
+        lines.forEach(line => {
+            if (line.startsWith('- ')) {
+                items.push({
+                    type: 'roster',
+                    text: line.substring(2),
+                    week: latestReport.week || activeSave.week
+                });
+            }
+        });
+    }
+
+    // 3. Add generic league news if items are low
+    if (items.length < 3) {
+        items.push({ type: 'news', text: 'VCT Season underway. All eyes on the trophy.', week: activeSave.week });
+        items.push({ type: 'news', text: 'Scouts reporting high potential in recent free agent pool.', week: activeSave.week });
+    }
+    
+    setLeagueTickerItems(items);
+  }, [activeSave, activeSection]);
 
   // Get current team info
   const teamInfo = activeSave ? (teams.find(t => String(t.id) === String(activeSave.teamId)) || { power: 0, potential: 0 }) : { power: 0, potential: 0 };
@@ -125,8 +272,19 @@ const CareerContent = ({ activeSection, activeSave, setActiveSave }) => {
                   <div className="no-matches">No matches.</div>
                 </div>
                 <div className="box" id="career-history">
-                  <h3>Career History</h3>
-                  <ul id="historyList"></ul>
+                  <h3>League History</h3>
+                  <div className="history-list">
+                    {activeSave?.history?.length > 0 ? (
+                      activeSave.history.slice().reverse().map((event, idx) => (
+                        <div key={idx} className="history-item">
+                          <span className="history-week">W{event.week}</span>
+                          <span className="history-text">{event.text}</span>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="no-history">No history recorded yet.</div>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -236,9 +394,225 @@ const CareerContent = ({ activeSection, activeSave, setActiveSave }) => {
 
       {activeSection === 'career-league' && (
         <div id="career-league" className="content-section">
-          <h2>League</h2>
-          <div className="league-container">
-            <p>League content coming soon</p>
+          <div className="section-header">
+            <h2>League</h2>
+            <div className="section-tabs league-tabs">
+                  <button 
+                    className={`tab-btn ${activeLeagueTab === 'news' ? 'active' : ''}`}
+                    onClick={() => setActiveLeagueTab('news')}
+                  >
+                    News
+                  </button>
+                  <button 
+                    className={`tab-btn ${activeLeagueTab === 'awards' ? 'active' : ''}`}
+                    onClick={() => setActiveLeagueTab('awards')}
+                  >
+                    Awards
+                  </button>
+              <button 
+                className={`tab-btn ${activeLeagueTab === 'schedule' ? 'active' : ''}`}
+                onClick={() => setActiveLeagueTab('schedule')}
+              >
+                Schedule
+              </button>
+              <button 
+                className={`tab-btn ${activeLeagueTab === 'injuries' ? 'active' : ''}`}
+                onClick={() => setActiveLeagueTab('injuries')}
+              >
+                Injuries
+              </button>
+              <button 
+                className={`tab-btn ${activeLeagueTab === 'records' ? 'active' : ''}`}
+                onClick={() => setActiveLeagueTab('records')}
+              >
+                Records
+              </button>
+              <button 
+                className={`tab-btn ${activeLeagueTab === 'history' ? 'active' : ''}`}
+                onClick={() => setActiveLeagueTab('history')}
+              >
+                History
+              </button>
+            </div>
+          </div>
+
+          <div className="league-content">
+              {activeLeagueTab === 'news' && (
+                <div className="tab-pane news-pane">
+                  <div className="league-grid single-col">
+                    <div className="box news-box">
+                      <h3>League News Feed</h3>
+                      <div className="news-feed">
+                        {leagueTickerItems.length > 0 ? (
+                          leagueTickerItems.map((item, idx) => (
+                            <div key={idx} className={`feed-item ${item.type}`}>
+                              <div className="feed-item-header">
+                                <span className={`feed-item-type ${item.type}`}>{item.type.toUpperCase()}</span>
+                                <span className="feed-item-date">Week {item.week}</span>
+                              </div>
+                              <h4>{item.sender ? `${item.sender}: ` : ''}{item.text}</h4>
+                              {item.body && (
+                                <div className="feed-item-content">
+                                  {item.contentType === 'html' ? (
+                                    <div 
+                                      className="html-content-preview" 
+                                      dangerouslySetInnerHTML={{ __html: item.body }} 
+                                    />
+                                  ) : (
+                                    <p>{item.body?.substring(0, 200)}...</p>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          ))
+                        ) : (
+                          <div className="empty-feed">
+                            <p className="no-data">No major league news at this time.</p>
+                            <p className="hint-text">News updates will appear here as the season progresses.</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {activeLeagueTab === 'awards' && (
+              <div className="tab-pane awards-pane">
+                <div className="league-grid single-col">
+                  <div className="box awards-box">
+                    <h3>Season Awards</h3>
+                    <div className="awards-list">
+                      <div className="award-item">
+                        <div className="award-icon mvp">MVP</div>
+                        <div className="award-info">
+                          <h4>Most Valuable Player</h4>
+                          <p className="award-winner">{leagueLeaders.mvp?.name || 'To be announced'}</p>
+                          <p className="award-team">{leagueLeaders.mvp?.team || ''}</p>
+                        </div>
+                      </div>
+                      <div className="award-item">
+                        <div className="award-icon evp">EVP</div>
+                        <div className="award-info">
+                          <h4>Excellent Valuable Player</h4>
+                          <p className="award-winner">{leagueLeaders.evp?.name || 'To be announced'}</p>
+                          <p className="award-team">{leagueLeaders.evp?.team || ''}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeLeagueTab === 'schedule' && (
+              <div className="tab-pane schedule-pane">
+                <div className="league-grid single-col">
+                  <div className="box schedule-box">
+                    <h3>Season Schedule</h3>
+                    <div className="schedule-list">
+                      {activeSave?.history?.filter(h => h.type === 'match' && h.week === activeSave.week).length > 0 ? (
+                        activeSave.history
+                          .filter(h => h.type === 'match' && h.week === activeSave.week)
+                          .map((match, idx) => (
+                            <div key={idx} className="schedule-item">
+                              <span className="match-status">COMPLETED</span>
+                              <span className="match-teams">{match.text}</span>
+                            </div>
+                          ))
+                      ) : (
+                        <p className="no-data">No matches scheduled for the current week.</p>
+                      )}
+                      <div className="upcoming-matches">
+                        <h4>Upcoming Matches</h4>
+                        <p className="hint-text">Simulate week to see next results.</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeLeagueTab === 'injuries' && (
+              <div className="tab-pane injuries-pane">
+                <div className="league-grid single-col">
+                  <div className="box injuries-box">
+                    <h3>Medical Report</h3>
+                    <div className="injuries-list">
+                      {activeSave?.injuries && activeSave.injuries.length > 0 ? (
+                        activeSave.injuries.map((injury, idx) => (
+                          <div key={idx} className="injury-item">
+                            <span className="injury-player">{injury.playerName}</span>
+                            <span className="injury-type">{injury.type}</span>
+                            <span className="injury-duration">{injury.duration} weeks left</span>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="no-data">No active injuries in the league.</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeLeagueTab === 'records' && (
+              <div className="tab-pane records-pane">
+                <div className="league-grid single-col">
+                  <div className="box records-box">
+                    <h3>League Records</h3>
+                    <div className="records-grid">
+                      <div className="record-card">
+                        <span className="record-label">Most Kills (Match)</span>
+                        <span className="record-value">{leagueRecords.maxKills.value}</span>
+                        <span className="record-holder">{leagueRecords.maxKills.player}</span>
+                        <span className="record-team">{leagueRecords.maxKills.team}</span>
+                      </div>
+                      <div className="record-card">
+                        <span className="record-label">Highest ADR (Match)</span>
+                        <span className="record-value">{leagueRecords.maxADR.value}</span>
+                        <span className="record-holder">{leagueRecords.maxADR.player}</span>
+                        <span className="record-team">{leagueRecords.maxADR.team}</span>
+                      </div>
+                      <div className="record-card">
+                        <span className="record-label">Most Assists (Match)</span>
+                        <span className="record-value">{leagueRecords.maxAssists.value}</span>
+                        <span className="record-holder">{leagueRecords.maxAssists.player}</span>
+                        <span className="record-team">{leagueRecords.maxAssists.team}</span>
+                      </div>
+                      <div className="record-card">
+                        <span className="record-label">Most Headshots (Match)</span>
+                        <span className="record-value">{leagueRecords.maxHS.value}</span>
+                        <span className="record-holder">{leagueRecords.maxHS.player}</span>
+                        <span className="record-team">{leagueRecords.maxHS.team}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeLeagueTab === 'history' && (
+              <div className="tab-pane history-pane">
+                <div className="league-grid single-col">
+                  <div className="box history-box">
+                    <h3>Hall of Fame / History</h3>
+                    <div className="history-list">
+                      {activeSave?.history && activeSave.history.length > 0 ? (
+                        activeSave.history.slice().reverse().map((entry, idx) => (
+                          <div key={idx} className="history-item">
+                            <span className="history-week">W{entry.week}</span>
+                            <span className="history-text">{entry.text}</span>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="no-data">No league history found.</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -308,10 +682,7 @@ const CareerContent = ({ activeSection, activeSave, setActiveSave }) => {
 
       {activeSection === 'career-stats' && (
         <div id="career-stats" className="content-section">
-          <h2>Stats</h2>
-          <div className="stats-container">
-            <p>Stats content coming soon</p>
-          </div>
+          <StatsHub activeSave={activeSave} />
         </div>
       )}
 

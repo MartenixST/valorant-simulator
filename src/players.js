@@ -51,7 +51,7 @@ export function assignPlayersToTeams(teamsToAssign, region) {
             ...team,
             players: teamPlayers,
             // Recalculate power based on assigned players
-            power: Math.round(teamPlayers.reduce((sum, p) => sum + p.overall, 0) / teamPlayers.length)
+            power: Math.round((teamPlayers.reduce((sum, p) => sum + p.overall, 0) / teamPlayers.length) * 10) / 10
         };
     });
     return teamsWithPlayers;

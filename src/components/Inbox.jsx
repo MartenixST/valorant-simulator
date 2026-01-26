@@ -13,7 +13,11 @@ const Inbox = ({ inbox, onMessageClick, selectedMessage }) => {
               onClick={() => onMessageClick(message)}
             >
               <div className="inbox-title">{message.subject || 'No Subject'}</div>
-              <div className="inbox-preview">{message.body ? message.body.substring(0, 40) + '...' : ''}</div>
+              <div className="inbox-preview">
+                {message.contentType === 'html' 
+                  ? 'HTML Report' 
+                  : (message.body ? message.body.substring(0, 40) + '...' : '')}
+              </div>
             </div>
           ))}
         </div>

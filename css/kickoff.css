@@ -416,6 +416,31 @@ body {
     color: white;
 }
 
+.tab-btn.disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+    background: rgba(255, 255, 255, 0.02);
+    pointer-events: none;
+}
+
+.map-score-display {
+    text-align: center;
+    margin-bottom: 20px;
+    font-family: var(--font-v);
+    font-size: 14px;
+    color: rgba(236, 232, 225, 0.6);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.map-score-display span {
+    color: var(--v-red);
+    font-size: 24px;
+    font-weight: 800;
+    margin-left: 10px;
+    vertical-align: middle;
+}
+
 .stats-container {
     padding: 20px;
     overflow-y: auto;
@@ -535,17 +560,19 @@ body {
 
 .simulate-button:disabled,
 .play-button:disabled {
-    background-color: #333 !important;
-    color: #666 !important;
+    background-color: #1a1a1a !important;
+    color: #444 !important;
     cursor: not-allowed;
-    border-color: #444 !important;
-    opacity: 0.6;
+    border-color: #222 !important;
+    opacity: 0.4;
+    filter: grayscale(1);
 }
 
 .simulate-button:disabled:hover,
 .play-button:disabled:hover {
     transform: none !important;
     box-shadow: none !important;
+    background-color: #1a1a1a !important;
 }
 #kickoffBracket { 
   overflow: visible; 

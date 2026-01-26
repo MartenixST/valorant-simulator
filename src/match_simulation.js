@@ -572,6 +572,18 @@ function handleNextRound() {
     );
     const result = roundSim.simulateRound();
     
+    // Sync stats from the active player objects back to our rosters
+    // This ensures that p.stats (which RoundSimulator modifies) is preserved
+    [...team1ActivePlayers, ...team2ActivePlayers].forEach(activePlayer => {
+        const rosterPlayer = [...team1Roster, ...team2Roster].find(p => p.id === activePlayer.id);
+        if (rosterPlayer) {
+            rosterPlayer.stats = activePlayer.stats;
+            rosterPlayer.kills = activePlayer.kills;
+            rosterPlayer.deaths = activePlayer.deaths;
+            rosterPlayer.assists = activePlayer.assists;
+        }
+    });
+
     const winner = result.winner;
     const winnerTeamIndex = winner.name === team1.name ? 1 : 2;
     
@@ -663,6 +675,7 @@ function handleMapWin(winner) {
     score2Element.textContent = '0';
     
     currentMapIndex++;
+    saveMatchState(); // Ensure mapResults is saved to the in-progress state
     checkMatchEnd();
 }
 
@@ -827,14 +840,14 @@ function loadMatchState() {
         totalRounds = matchState.totalRounds || 0;
         mapResults = matchState.mapResults || [];
 
-        // Rehydrate active players and link them to the roster instances
+    // Rehydrate active players and link them to the roster instances
         if (matchState.team1ActivePlayers) {
             console.log(`Loading saved Team 1 active players: ${matchState.team1ActivePlayers.length}`);
             const rehydrated = matchState.team1ActivePlayers.map(p => Player.fromJSON(p));
             team1ActivePlayers = rehydrated.map(rp => {
                 const rosterPlayer = team1Roster.find(p => p.id === rp.id);
                 if (rosterPlayer) {
-                    // Update roster player stats with rehydrated stats
+                    // Sync all stats from rehydrated player back to roster player
                     rosterPlayer.stats = rp.stats;
                     rosterPlayer.kills = rp.kills;
                     rosterPlayer.deaths = rp.deaths;
@@ -850,7 +863,7 @@ function loadMatchState() {
             team2ActivePlayers = rehydrated.map(rp => {
                 const rosterPlayer = team2Roster.find(p => p.id === rp.id);
                 if (rosterPlayer) {
-                    // Update roster player stats with rehydrated stats
+                    // Sync all stats from rehydrated player back to roster player
                     rosterPlayer.stats = rp.stats;
                     rosterPlayer.kills = rp.kills;
                     rosterPlayer.deaths = rp.deaths;

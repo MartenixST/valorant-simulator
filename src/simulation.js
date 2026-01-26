@@ -353,7 +353,7 @@ export class Team {
     get power() {
         const activePlayers = this.players.filter(p => p.status !== 'bench');
         if (activePlayers.length === 0) return 50;
-        return Math.round(activePlayers.reduce((sum, p) => sum + p.overall, 0) / activePlayers.length);
+        return Math.round((activePlayers.reduce((sum, p) => sum + p.overall, 0) / activePlayers.length) * 10) / 10;
     }
 }
 
@@ -395,54 +395,73 @@ export class RoundSimulator {
         const log = `Round ${this.roundNumber}: ${winner.name} won against ${loser.name}`;
         this.logs.push(log);
         
-        // Performance-based stat assignment
-        // Top 2 players in winner team are more likely to get the kill
-        const sortedWinnerPlayers = [...activeWinnerPlayers].sort((a, b) => b.overall - a.overall);
-        
-        let killerIdx;
-        if (activeWinnerPlayers.length >= 2 && Math.random() < 0.6) {
-            killerIdx = Math.random() < 0.5 ? 0 : 1;
-        } else {
-            killerIdx = Math.floor(Math.random() * activeWinnerPlayers.length);
-        }
-        
-        const killer = sortedWinnerPlayers[killerIdx];
-        if (killer) {
-            killer.kills++;
-            killer.stats.kills++;
-        }
-        
-        const sortedLoserPlayers = [...activeLoserPlayers].sort((a, b) => a.overall - b.overall);
-        const victimIdx = activeLoserPlayers.length > 1 && Math.random() < 0.4 ? 0 : Math.floor(Math.random() * activeLoserPlayers.length);
-        const victim = sortedLoserPlayers[victimIdx];
-        if (victim) {
-            victim.deaths++;
-            victim.stats.deaths++;
-        }
-        
-        // Randomly assign an assist
-        const assistCandidate = activeWinnerPlayers.filter(p => p.id !== (killer ? killer.id : null));
-        if (assistCandidate.length > 0 && Math.random() < 0.4) {
-            const assister = assistCandidate[Math.floor(Math.random() * assistCandidate.length)];
-            if (assister) {
-                assister.assists++;
-                assister.stats.assists++;
+        // --- Realistic Stat Simulation ---
+        // Loser deaths: 4 or 5 (most common outcomes)
+        const loserDeathsCount = Math.random() < 0.7 ? 5 : 4;
+        // Winner deaths: 0 to 4
+        const winnerDeathsCount = Math.floor(Math.random() * 5);
+
+        const simulateDeath = (victimTeam, killerTeam) => {
+            const victim = victimTeam[Math.floor(Math.random() * victimTeam.length)];
+            
+            // Weight killer selection by overall rating
+            const totalKillerPower = killerTeam.reduce((sum, p) => sum + p.overall, 0);
+            let r = Math.random() * totalKillerPower;
+            let killer = killerTeam[killerTeam.length - 1];
+            for (let p of killerTeam) {
+                r -= p.overall;
+                if (r <= 0) {
+                    killer = p;
+                    break;
+                }
             }
+
+            if (victim && killer) {
+                // Update victim
+                victim.deaths++;
+                if (!victim.stats) victim.stats = { kills: 0, deaths: 0, assists: 0, hs: 0, damageDealt: 0 };
+                victim.stats.deaths++;
+
+                // Update killer
+                killer.kills++;
+                if (!killer.stats) killer.stats = { kills: 0, deaths: 0, assists: 0, hs: 0, damageDealt: 0 };
+                killer.stats.kills++;
+                
+                // HS chance based on aim
+                if (Math.random() < (killer.rating.aim / 250) + 0.1) {
+                    killer.stats.hs++;
+                }
+
+                // Killer damage (at least 150 for the kill)
+                killer.stats.damageDealt += 150 + Math.floor(Math.random() * 50);
+
+                // Optional assist
+                const assistCandidate = killerTeam.filter(p => p.id !== killer.id);
+                if (assistCandidate.length > 0 && Math.random() < 0.35) {
+                    const assister = assistCandidate[Math.floor(Math.random() * assistCandidate.length)];
+                    assister.assists++;
+                    if (!assister.stats) assister.stats = { kills: 0, deaths: 0, assists: 0, hs: 0, damageDealt: 0 };
+                    assister.stats.assists++;
+                    // Assister damage
+                    assister.stats.damageDealt += 50 + Math.floor(Math.random() * 50);
+                }
+            }
+        };
+
+        // Simulate deaths for loser team (killed by winner team)
+        for (let i = 0; i < loserDeathsCount; i++) {
+            simulateDeath(activeLoserPlayers, activeWinnerPlayers);
         }
 
-        // HS chance based on aim
-        if (killer && Math.random() < (killer.rating.aim / 200) + 0.1) {
-            killer.stats.hs++;
+        // Simulate deaths for winner team (killed by loser team)
+        for (let i = 0; i < winnerDeathsCount; i++) {
+            simulateDeath(activeWinnerPlayers, activeLoserPlayers);
         }
 
-        // Simulate damage for all players in the round
-        activeWinnerPlayers.forEach(p => {
-            const isKiller = killer && p.id === killer.id;
-            const baseDamage = isKiller ? 150 : Math.floor(Math.random() * 100);
-            p.stats.damageDealt += baseDamage;
-        });
-        activeLoserPlayers.forEach(p => {
-            p.stats.damageDealt += Math.floor(Math.random() * 80);
+        // Add some "chip damage" for everyone else who didn't get a kill/assist
+        [...activeWinnerPlayers, ...activeLoserPlayers].forEach(p => {
+            if (!p.stats) p.stats = { kills: 0, deaths: 0, assists: 0, hs: 0, damageDealt: 0 };
+            p.stats.damageDealt += Math.floor(Math.random() * 40);
         });
         
         return {
