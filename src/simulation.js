@@ -12,14 +12,14 @@ export class PlayerRating {
         
         // Potential should always be at least the current overall
         const currentOverall = this.calculateOverall();
-        this.potential = Math.round((potential || Math.max(currentOverall, 70)) * 10) / 10;
+        this.potential = Math.round(potential || Math.max(currentOverall, 70));
     }
 
     // Generate random ratings for a new player
     static generateRandom(base = 75, variance = 30) {
         // Ensure base is high enough for competitive play
         const effectiveBase = Math.max(base, 65);
-        const rand = () => Math.floor(Math.random() * variance) + (effectiveBase - variance/2);
+        const rand = () => Math.round(Math.floor(Math.random() * variance) + (effectiveBase - variance/2));
         
         const ratings = new PlayerRating(
             Math.max(1, Math.min(99, rand())), // Aim
@@ -41,7 +41,7 @@ export class PlayerRating {
 
     calculateOverall() {
         const avg = (this.aim + this.movement + this.gameSense + this.clutch + this.aggression + this.utility + this.mental + this.teamwork + this.consistency) / 9;
-        return Math.round(avg * 10) / 10;
+        return Math.round(avg);
     }
 
     get overall() {
@@ -84,32 +84,55 @@ export class PlayerRating {
     }
 
     // New development logic
-    develop() {
+    develop(activity = 'standard') {
         // Higher potential means faster and more likely growth
-        const growthChance = (this.potential / 100) * 0.4; // Up to 40% chance of growth
+        let growthChance = (this.potential / 100) * 0.4; // Up to 40% chance of growth
         const declineChance = (1 - (this.potential / 100)) * 0.1; // Small chance of decline if potential is low
+
+        // Activity modifiers
+        if (activity === 'scrim') {
+            growthChance *= 1.5; // 50% more growth chance
+        }
 
         const stats = ['aim', 'movement', 'gameSense', 'clutch', 'aggression', 'utility', 'mental', 'teamwork', 'consistency'];
         
         stats.forEach(stat => {
-            if (Math.random() < growthChance) {
-                // Grow by 0.1 to 1.5 points, rounded to 1 decimal place
-                const growth = Math.random() * 1.4 + 0.1;
-                this[stat] = Math.round(Math.min(99, this[stat] + growth) * 10) / 10;
+            let statGrowthChance = growthChance;
+            let growthMultiplier = 1;
+
+            // Activity specific stat boosts
+            if (activity === 'practice') {
+                if (stat === 'aim' || stat === 'movement') {
+                    statGrowthChance *= 2;
+                    growthMultiplier = 2;
+                }
+            } else if (activity === 'bonding') {
+                if (stat === 'teamwork' || stat === 'mental') {
+                    statGrowthChance *= 2;
+                    growthMultiplier = 2;
+                }
+            }
+
+            if (Math.random() < statGrowthChance) {
+                // Grow by 1 to 2 points
+                const growth = (Math.floor(Math.random() * 2) + 1) * growthMultiplier;
+                this[stat] = Math.min(99, this[stat] + growth);
             } else if (Math.random() < declineChance) {
-                // Small chance to decline slightly, rounded to 1 decimal place
-                const decline = Math.random() * 0.5;
-                this[stat] = Math.round(Math.max(1, this[stat] - decline) * 10) / 10;
+                // Small chance to decline slightly
+                const decline = Math.floor(Math.random() * 1) + 1;
+                this[stat] = Math.max(1, this[stat] - decline);
             }
         });
 
         // Potential naturally declines very slowly as player nears it
         if (this.calculateOverall() >= this.potential - 5) {
-            this.potential = Math.max(this.calculateOverall(), this.potential - 0.05);
+            if (Math.random() < 0.1) { // 10% chance to drop potential by 1 point
+                this.potential = Math.max(this.calculateOverall(), this.potential - 1);
+            }
         }
 
         // Update potential to be at least overall, and round it
-        this.potential = Math.round(Math.max(this.potential, this.overall) * 10) / 10;
+        this.potential = Math.round(Math.max(this.potential, this.overall));
     }
 }
 
@@ -196,11 +219,22 @@ export class Player {
 
     // Alias for compatibility with rating.getOverallRating()
     get overall() {
-        return this.rating.overall;
+        return this.rating ? this.rating.overall : 0;
+    }
+
+    set overall(value) {
+        // overall is a computed property from ratings, so we don't allow setting it directly
+        // but we provide a setter to prevent "only a getter" errors in legacy code
     }
 
     get potential() {
-        return this.rating.potential;
+        return this.rating ? this.rating.potential : 0;
+    }
+
+    set potential(value) {
+        if (this.rating) {
+            this.rating.potential = value;
+        }
     }
 
     getOverallRating() {
@@ -351,33 +385,158 @@ export class Team {
     }
 
     get power() {
-        const activePlayers = this.players.filter(p => p.status !== 'bench');
+        // Teams must have at least 5 players to be eligible
+        if (this.players.length < 5) return 0;
+
+        // Sort players by overall rating to get the strongest 5
+        const sortedPlayers = [...this.players].sort((a, b) => b.overall - a.overall);
+        const activePlayers = sortedPlayers.slice(0, 5);
+        
         if (activePlayers.length === 0) return 50;
         return Math.round((activePlayers.reduce((sum, p) => sum + p.overall, 0) / activePlayers.length) * 10) / 10;
     }
 }
 
 export class RoundSimulator {
-    constructor(attackers, defenders, roundNumber, logs) {
+    constructor(attackers, defenders, roundNumber, logs, strategies = {}) {
         this.attackers = attackers;
         this.defenders = defenders;
         this.roundNumber = roundNumber;
         this.logs = logs || [];
+        this.strategies = strategies; // { team1Id: strategy, team2Id: strategy }
+    }
+
+    handleEconomy(players, team) {
+        const strat = this.strategies[team.id] || { eco: 'standard' };
+        
+        // Simple buy logic
+        const minFullBuy = 3900; // Vandal/Phantom (2900) + Heavy Shield (1000)
+        const avgMoney = players.reduce((sum, p) => sum + p.money, 0) / players.length;
+
+        let buyType = 'full';
+        if (this.roundNumber === 1 || this.roundNumber === 13) {
+            buyType = 'pistol';
+        } else if (avgMoney < 2000) {
+            buyType = strat.eco === 'aggressive-buy' ? 'force' : 'eco';
+        } else if (avgMoney < 3900) {
+            buyType = strat.eco === 'stingy' ? 'eco' : 'force';
+        }
+
+        players.forEach(p => {
+            if (buyType === 'pistol') {
+                p.buy('GHOST', 'NONE');
+            } else if (buyType === 'full') {
+                const weapon = p.role === 'Duelist' ? 'VANDAL' : 'PHANTOM';
+                p.buy(weapon, 'HEAVY');
+            } else if (buyType === 'force') {
+                p.buy('SPECTRE', 'LIGHT');
+            } else {
+                p.weapon = WEAPONS.CLASSIC;
+                p.shield = SHIELDS.NONE;
+            }
+        });
+    }
+
+    updateEconomy(winners, losers, attackerWon) {
+        winners.forEach(p => {
+            p.money += 3000; // Win bonus
+            // Survival bonus
+            if (p.stats.deaths === 0) p.money += 0; 
+        });
+
+        losers.forEach(p => {
+            p.money += 1900; // Base loss bonus
+            // Bonus increases on loss streaks (simplified)
+            p.money += 500; 
+        });
     }
 
     simulateRound() {
-        // In manual match simulation, we pass exactly 5 players. 
-        // In weekly simulation, we might have more and need to filter by status.
-        const activeAttackers = this.attackers.players.length <= 5 ? this.attackers.players : this.attackers.players.filter(p => p.status !== 'bench').slice(0, 5);
-        const activeDefenders = this.defenders.players.length <= 5 ? this.defenders.players : this.defenders.players.filter(p => p.status !== 'bench').slice(0, 5);
+        // Teams must have at least 5 players to play
+        if (this.attackers.players.length < 5 || this.defenders.players.length < 5) {
+            const forfeiter = this.attackers.players.length < 5 ? this.attackers : this.defenders;
+            const winner = forfeiter === this.attackers ? this.defenders : this.attackers;
+            this.logs.push(`CRITICAL: ${forfeiter.name} does not have enough players (min 5). FORFEIT!`);
+            winner.score = 13; // Fast forward to end
+            forfeiter.score = 0;
+            return { forfeit: true, winner: winner };
+        }
 
-        const attackerPower = activeAttackers.reduce((sum, p) => sum + p.getOverallRating(), 0);
-        const defenderPower = activeDefenders.reduce((sum, p) => sum + p.getOverallRating(), 0);
+        // Automatically select the top 5 players by overall rating for each team
+        let activeAttackers = [...this.attackers.players]
+            .sort((a, b) => b.overall - a.overall)
+            .slice(0, 5);
+            
+        let activeDefenders = [...this.defenders.players]
+            .sort((a, b) => b.overall - a.overall)
+            .slice(0, 5);
         
-        // Base win chance on power, but add some variance
+        // Fallback for empty teams
+        if (activeAttackers.length === 0) activeAttackers = this.attackers.players.slice(0, 5);
+        if (activeDefenders.length === 0) activeDefenders = this.defenders.players.slice(0, 5);
+
+        // --- Handle Economy & Buys ---
+        this.handleEconomy(activeAttackers, this.attackers);
+        this.handleEconomy(activeDefenders, this.defenders);
+
+        const attackerPower = activeAttackers.reduce((sum, p) => {
+            // Weapon modifier (rifles are better than pistols)
+            let power = p.getOverallRating();
+            if (p.weapon.type === 'Rifle' || p.weapon.type === 'Sniper') power += 5;
+            if (p.weapon.type === 'Sidearm' && p.weapon.name !== 'Sheriff') power -= 10;
+            return sum + power;
+        }, 0);
+
+        const defenderPower = activeDefenders.reduce((sum, p) => {
+            let power = p.getOverallRating();
+            if (p.weapon.type === 'Rifle' || p.weapon.type === 'Sniper') power += 5;
+            if (p.weapon.type === 'Sidearm' && p.weapon.name !== 'Sheriff') power -= 10;
+            return sum + power;
+        }, 0);
+        
+        // Base win chance
         const totalPower = attackerPower + defenderPower;
         let winChance = attackerPower / (totalPower || 1);
         
+        // --- Apply Strategy Bonuses ---
+        const atkStrat = this.strategies[this.attackers.id] || { playstyle: 'balanced', focus: 'standard' };
+        const defStrat = this.strategies[this.defenders.id] || { playstyle: 'balanced', focus: 'standard' };
+
+        // 1. Playstyle Bonuses
+        if (atkStrat.playstyle === 'aggressive') {
+            winChance += 0.05;
+            if (Math.random() < 0.4) this.logs.push(`${this.attackers.name} is pushing aggressively, looking to overwhelm the site!`);
+        }
+        if (defStrat.playstyle === 'aggressive') {
+            winChance -= 0.05;
+            if (Math.random() < 0.4) this.logs.push(`${this.defenders.name} is playing for high-risk picks to disrupt the attack.`);
+        }
+        if (atkStrat.playstyle === 'defensive') {
+            winChance -= 0.05;
+            if (Math.random() < 0.4) this.logs.push(`${this.attackers.name} is playing slow and methodical, baiting out utility.`);
+        }
+        if (defStrat.playstyle === 'defensive') {
+            winChance += 0.05;
+            if (Math.random() < 0.4) this.logs.push(`${this.defenders.name} is bunkered down on site with a disciplined setup.`);
+        }
+
+        // 2. Tactical Focus Bonuses
+        if (atkStrat.focus === 'entry') {
+            winChance += 0.03;
+            if (Math.random() < 0.35) this.logs.push(`${this.attackers.name} executed a coordinated fast site hit!`);
+        }
+        if (defStrat.focus === 'map-control') {
+            winChance += 0.03;
+            if (Math.random() < 0.35) this.logs.push(`${this.defenders.name} has superior map info, predicting the rotation.`);
+        }
+
+        // 3. Tactical Variance
+        if (atkStrat.playstyle === 'tactical' || defStrat.playstyle === 'tactical') {
+            const variance = (Math.random() - 0.5) * 0.1; // +/- 5% random swing
+            winChance += variance;
+            if (Math.abs(variance) > 0.02) this.logs.push("Strategic mid-round adjustments are shifting the momentum.");
+        }
+
         // Advantage to defense (typical in Valorant)
         winChance -= 0.02; 
         
@@ -391,25 +550,60 @@ export class RoundSimulator {
         const activeLoserPlayers = attackerWins ? activeDefenders : activeAttackers;
         
         winner.score++;
+
+        // --- Economy Post-Round ---
+        this.updateEconomy(activeWinnerPlayers, activeLoserPlayers, attackerWins);
         
         const log = `Round ${this.roundNumber}: ${winner.name} won against ${loser.name}`;
         this.logs.push(log);
         
         // --- Realistic Stat Simulation ---
-        // Loser deaths: 4 or 5 (most common outcomes)
-        const loserDeathsCount = Math.random() < 0.7 ? 5 : 4;
-        // Winner deaths: 0 to 4
-        const winnerDeathsCount = Math.floor(Math.random() * 5);
+        // Playstyle affects death counts
+        let baseLoserDeaths = Math.random() < 0.7 ? 5 : 4;
+        let baseWinnerDeaths = Math.floor(Math.random() * 5);
+
+        // --- Apply Strategy Stat Modifiers ---
+        // 1. Aggressive playstyle increases kill/death volume for both sides
+        if (atkStrat.playstyle === 'aggressive' || defStrat.playstyle === 'aggressive') {
+            if (Math.random() < 0.6) baseWinnerDeaths = Math.min(4, baseWinnerDeaths + 1);
+            if (Math.random() < 0.3 && baseLoserDeaths < 5) baseLoserDeaths++;
+        }
+        
+        // 2. Defensive playstyle reduces casualties (more survivors)
+        if (atkStrat.playstyle === 'defensive' || defStrat.playstyle === 'defensive') {
+            if (Math.random() < 0.4) baseWinnerDeaths = Math.max(0, baseWinnerDeaths - 1);
+            if (Math.random() < 0.2) baseLoserDeaths = Math.max(3, baseLoserDeaths - 1);
+        }
+
+        const loserDeathsCount = baseLoserDeaths;
+        const winnerDeathsCount = baseWinnerDeaths;
 
         const simulateDeath = (victimTeam, killerTeam) => {
+            if (!victimTeam || victimTeam.length === 0 || !killerTeam || killerTeam.length === 0) return;
+            
             const victim = victimTeam[Math.floor(Math.random() * victimTeam.length)];
             
-            // Weight killer selection by overall rating
-            const totalKillerPower = killerTeam.reduce((sum, p) => sum + p.overall, 0);
+            // Weight killer selection by overall rating AND strategy focus
+            const teamId = killerTeam[0].teamId;
+            const strat = this.strategies[teamId] || { focus: 'standard' };
+
+            const totalKillerPower = killerTeam.reduce((sum, p) => {
+                let weight = p.overall;
+                // Focus: Entry Fraggers get more kills in entry rounds or aggressive sets
+                if (strat.focus === 'entry' && p.role === 'Duelist') weight *= 1.2;
+                // Focus: Map Control/Retake gives more weight to Sentinels/Controllers
+                if (strat.focus === 'map-control' && (p.role === 'Sentinel' || p.role === 'Controller')) weight *= 1.1;
+                return sum + weight;
+            }, 0);
+
             let r = Math.random() * totalKillerPower;
             let killer = killerTeam[killerTeam.length - 1];
             for (let p of killerTeam) {
-                r -= p.overall;
+                let weight = p.overall;
+                if (strat.focus === 'entry' && p.role === 'Duelist') weight *= 1.2;
+                if (strat.focus === 'map-control' && (p.role === 'Sentinel' || p.role === 'Controller')) weight *= 1.1;
+                
+                r -= weight;
                 if (r <= 0) {
                     killer = p;
                     break;
@@ -472,31 +666,65 @@ export class RoundSimulator {
 }
 
 export class MatchSimulator {
-    constructor(team1, team2, logs) {
+    constructor(team1, team2, logs, strategies = {}) {
         this.team1 = team1;
         this.team2 = team2;
         this.logs = logs || [];
+        this.strategies = strategies; // { team1Id: strategy, team2Id: strategy }
+    }
+
+    isMatchFinished() {
+        const s1 = this.team1.score;
+        const s2 = this.team2.score;
+        
+        // Standard win
+        if ((s1 === 13 && s2 < 12) || (s2 === 13 && s1 < 12)) return true;
+        
+        // Overtime win (must win by 2)
+        if (s1 >= 13 || s2 >= 13) {
+            return Math.abs(s1 - s2) >= 2;
+        }
+        
+        return false;
     }
 
     simulateMatch() {
-        while (this.team1.score < 13 && this.team2.score < 13) {
+        while (!this.isMatchFinished()) {
             const roundNum = this.team1.score + this.team2.score + 1;
-            const roundSim = new RoundSimulator(
-                this.team1.side === 'attack' ? this.team1 : this.team2,
-                this.team1.side === 'defense' ? this.team1 : this.team2,
-                roundNum,
-                this.logs
-            );
-            roundSim.simulateRound();
             
-            if (roundNum === 12) {
+            // Handle overtime side switching (every 2 rounds in OT)
+            if (roundNum > 24) {
+                if ((roundNum - 25) % 2 === 0 && roundNum > 25) {
+                    this.team1.switchSide();
+                    this.team2.switchSide();
+                    this.logs.push("Overtime sides switched!");
+                }
+            } else if (roundNum === 13) {
                 this.team1.switchSide();
                 this.team2.switchSide();
                 this.logs.push("Sides switched!");
             }
+
+            const roundSim = new RoundSimulator(
+                this.team1.side === 'attack' ? this.team1 : this.team2,
+                this.team1.side === 'defense' ? this.team1 : this.team2,
+                roundNum,
+                this.logs,
+                this.strategies
+            );
+            const roundResult = roundSim.simulateRound();
+            
+            // Handle forfeit
+            if (roundResult && roundResult.forfeit) {
+                break;
+            }
+            
+            if (roundNum === 12 && this.team1.score === 12 && this.team2.score === 12) {
+                this.logs.push("MATCH GOING TO OVERTIME!");
+            }
         }
         
-        const winner = this.team1.score >= 13 ? this.team1 : this.team2;
+        const winner = this.team1.score > this.team2.score ? this.team1 : this.team2;
         this.logs.push(`Match finished! ${winner.name} won ${this.team1.score}-${this.team2.score}`);
         
         return {

@@ -4,7 +4,7 @@ import { teamLogos } from './teams.js';
 export const standings = {
   Americas: [
     { name: "100 Thieves", wins: 0, losses: 0 }, { name: "Cloud9", wins: 0, losses: 0 }, { name: "Evil Geniuses", wins: 0, losses: 0 }, { name: "FURIA", wins: 0, losses: 0 }, { name: "KRÜ Esports", wins: 0, losses: 0 }, 
-    { name: "Leviatán", wins: 0, losses: 0 }, { name: "LOUD", wins: 0, losses: 0 }, { name: "MIBR", wins: 0, losses: 0 }, { name: "NRG", wins: 0, losses: 0 }, { name: "Sentinels", wins: 0, losses: 0 }, { name: "G2 Esports", wins: 0, losses: 0 }, { name: "2GAME Esports", wins: 0, losses: 0 }
+    { name: "Leviatan", wins: 0, losses: 0 }, { name: "LOUD", wins: 0, losses: 0 }, { name: "MIBR", wins: 0, losses: 0 }, { name: "NRG", wins: 0, losses: 0 }, { name: "Sentinels", wins: 0, losses: 0 }, { name: "G2 Esports", wins: 0, losses: 0 }, { name: "2GAME Esports", wins: 0, losses: 0 }
   ],
   EMEA: [
     { name: "Team Liquid", wins: 0, losses: 0 }, { name: "GiantX", wins: 0, losses: 0 }, { name: "Natus Vincere", wins: 0, losses: 0 }, { name: "Fnatic", wins: 0, losses: 0 }, { name: "BBL Esports", wins: 0, losses: 0 },
@@ -41,7 +41,7 @@ function updateActiveSave(updatedSave) {
         const userTeamId = String(updatedSave.teamId);
         const userTeamPlayers = saveToStore.players.filter(p => String(p.teamId) === userTeamId);
         const otherPlayers = saveToStore.players.filter(p => String(p.teamId) !== userTeamId);
-        saveToStore.players = [...userTeamPlayers, ...otherPlayers.slice(0, 100)];
+        saveToStore.players = [...userTeamPlayers, ...otherPlayers.slice(0, 500)];
       }
       localStorage.setItem(`save_${updatedSave.id}`, JSON.stringify(saveToStore));
     }
@@ -190,7 +190,7 @@ function showTeamRoster(teamName) {
             player.rating.mental, player.rating.teamwork, player.rating.consistency
           ];
           const sum = stats.reduce((acc, curr) => acc + (Number(curr) || 50), 0);
-          ovr = Math.round((sum / 9) * 10) / 10;
+          ovr = Math.round(sum / 9);
         } else if (typeof player.rating === 'number') {
           ovr = player.rating;
         }

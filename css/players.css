@@ -77,6 +77,21 @@
   text-shadow: 0 0 10px rgba(0, 246, 255, 0.3);
 }
 
+.budget-display span.budget-negative {
+  color: #ff4655;
+  text-shadow: 0 0 10px rgba(255, 70, 85, 0.3);
+}
+
+.budget-detail {
+  display: block;
+  font-size: 0.7rem;
+  color: rgba(236, 232, 225, 0.5);
+  margin-top: 4px;
+  font-family: sans-serif;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
 .create-player-btn {
   background: transparent;
   color: #ff4655;

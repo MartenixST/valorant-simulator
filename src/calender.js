@@ -2,7 +2,7 @@
 const regions = {
   Americas: [
     "100 Thieves", "Cloud9", "Evil Geniuses", "FURIA", "KRÜ Esports",
-    "Leviatán", "LOUD", "MIBR", "NRG", "Sentinels", "G2 Esports", "2GAME Esports"
+    "Leviatan", "LOUD", "MIBR", "NRG", "Sentinels", "G2 Esports", "2GAME Esports"
   ],
   EMEA: [
     "Team Liquid", "GiantX", "Natus Vincere", "Fnatic", "BBL Esports",

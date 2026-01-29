@@ -3,6 +3,7 @@ import { teams, teamLogos } from '../teams.js';
 import { ROLES, Player, PlayerRating } from '../simulation.js';
 import { generatePlayer } from '../players.js';
 import { saveCareer } from '../career_local_storage.jsx';
+import { hireFreeAgentForTeam } from '../ai_manager.js';
 
 const PlayersHub = ({ activeSave, setActiveSave }) => {
     const [freeAgents, setFreeAgents] = useState([]);
@@ -20,6 +21,24 @@ const PlayersHub = ({ activeSave, setActiveSave }) => {
     });
 
     const [searchTerm, setSearchTerm] = useState('');
+    
+    // Calculate total team salary
+    const teamSalary = activeSave?.players?.reduce((acc, p) => {
+        const pTeamId = p.teamId !== undefined && p.teamId !== null ? String(p.teamId) : null;
+        const pTeamName = p.team !== undefined && p.team !== null ? String(p.team) : null;
+        const playerTeamId = activeSave.teamId ? String(activeSave.teamId) : null;
+        const playerTeamName = activeSave.team ? String(activeSave.team) : null;
+        
+        // Match by ID/Name/Gamertag for your team to avoid duplicates in budget calculation
+        const isUserTeam = (playerTeamId && pTeamId === playerTeamId) || (playerTeamName && pTeamName === playerTeamName);
+        
+        if (isUserTeam) {
+            return acc + (p.marketValue || 50000);
+        }
+        return acc;
+    }, 0) || 0;
+
+    const remainingBudget = (activeSave?.budget || 0) - teamSalary;
     
     // Contract Offer State
     const [showOfferModal, setShowOfferModal] = useState(false);
@@ -69,8 +88,20 @@ const PlayersHub = ({ activeSave, setActiveSave }) => {
                 const isPlayerTeamId = playerTeamId && pTeamId === playerTeamId;
                 const isPlayerTeamName = playerTeamName && pTeamName === playerTeamName;
                 
+                // CRITICAL: Also check by name/gamertag for real players who might have duplicate entries
+                const isUserTeamByIdentity = activeSave.players.some(p => {
+                    const activeTId = activeSave.teamId ? String(activeSave.teamId) : null;
+                    const pTId = p.teamId ? String(p.teamId) : null;
+                    const isOwnTeam = activeTId && pTId && pTId === activeTId;
+                    if (!isOwnTeam) return false;
+                    
+                    return p.id === player.id || 
+                           (p.gamertag && p.gamertag === player.gamertag) || 
+                           (p.name && p.name === player.name);
+                });
+
                 // If they belong to the player's team, they aren't an "other player"
-                return !(isPlayerTeamId || isPlayerTeamName);
+                return !(isPlayerTeamId || isPlayerTeamName || isUserTeamByIdentity);
             });
             
             console.log("PlayersHub Filtered:", {
@@ -130,6 +161,9 @@ const PlayersHub = ({ activeSave, setActiveSave }) => {
                 return activeTeamId && pTeamId && pTeamId === activeTeamId;
             });
 
+            const newInboxMessages = [];
+            const originalTeamId = player.teamId;
+
             const updatedPlayers = activeSave.players.map(p => {
                 if (p && p.id === player.id) {
                     const updatedP = Player.fromJSON(p);
@@ -144,8 +178,39 @@ const PlayersHub = ({ activeSave, setActiveSave }) => {
                     }
                     return updatedP;
                 }
+                
+                // REDUNDANCY CHECK: Ensure this player ID doesn't exist on any other team
+                // We also check by name/gamertag for real players
+                const isMatch = p && (p.id === player.id || 
+                                     (p.gamertag && p.gamertag === player.gamertag) || 
+                                     (p.name && p.name === player.name));
+
+                if (isMatch) {
+                    const updatedP = Player.fromJSON(p);
+                    updatedP.teamId = String(activeSave.teamId);
+                    updatedP.team = activeSave.team;
+                    return updatedP;
+                }
                 return p;
             });
+
+            // Handle replacement for AI team if a player was poached from free agents (who had a team)
+            if (originalTeamId && String(originalTeamId) !== String(activeSave.teamId)) {
+                const originalTeam = teams.find(t => String(t.id) === String(originalTeamId));
+                if (originalTeam) {
+                    const replacement = hireFreeAgentForTeam(originalTeam.id, originalTeam.name, originalTeam.region, updatedPlayers);
+                    if (replacement) {
+                        newInboxMessages.push({
+                            id: Date.now() + Math.random().toString(36).substr(2, 9),
+                            sender: "League News",
+                            subject: "Roster Change: Player Poached",
+                            body: `ALERT: ${originalTeam.name} has lost ${player.name || player.gamertag} to your team, ${activeSave.team}.\n\nTo fill the vacancy, ${originalTeam.name} has signed free agent ${replacement.name || replacement.gamertag} to their active roster.`,
+                            date: new Date().toLocaleDateString(),
+                            read: false
+                        });
+                    }
+                }
+            }
 
             const updatedSave = {
                 ...activeSave,
@@ -162,7 +227,7 @@ const PlayersHub = ({ activeSave, setActiveSave }) => {
                 read: false
             };
             
-            updatedSave.inbox = [newMessage, ...(updatedSave.inbox || [])];
+            updatedSave.inbox = [newMessage, ...newInboxMessages, ...(updatedSave.inbox || [])];
             
             // Explicitly save to storage immediately to ensure it persists on reload
             saveCareer(updatedSave);
@@ -258,7 +323,7 @@ const PlayersHub = ({ activeSave, setActiveSave }) => {
             <div className="stat-bar-container">
                 <div className="stat-label">
                     <span>{label}</span>
-                    <span className={`text-${ratingClass}`}>{Math.round(value * 10) / 10}</span>
+                    <span className={`text-${ratingClass}`}>{Math.round(value)}</span>
                 </div>
                 <div className="stat-bar-bg">
                     <div className={`stat-bar-fill ${ratingClass}`} style={{ width: `${Math.min(100, Math.max(0, value))}%` }}></div>
@@ -280,7 +345,7 @@ const PlayersHub = ({ activeSave, setActiveSave }) => {
             ];
             const sum = stats.reduce((acc, curr) => acc + (Number(curr) || 50), 0);
             const avg = sum / 9;
-            return Math.round(avg * 10) / 10;
+            return Math.round(avg);
         })();
 
         const ratingClass = getRatingClass(overall);
@@ -350,6 +415,16 @@ const PlayersHub = ({ activeSave, setActiveSave }) => {
             <div className="hub-header">
                 <div className="hub-title-section">
                     <h2>Players Hub</h2>
+                    {activeSave && (
+                        <div className="budget-display">
+                            Available Budget: <span className={remainingBudget < 0 ? 'budget-negative' : ''}>
+                                ${remainingBudget.toLocaleString()}
+                            </span>
+                            <small className="budget-detail">
+                                (After ${teamSalary.toLocaleString()} in Salaries)
+                            </small>
+                        </div>
+                    )}
                 </div>
                 <button className="create-player-btn" onClick={() => setShowCreateForm(!showCreateForm)}>
                     {showCreateForm ? 'Cancel' : 'Create New Player'}

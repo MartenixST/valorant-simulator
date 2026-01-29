@@ -3,6 +3,7 @@ import Inbox from './Inbox.jsx';
 import SimWeekButton from './SimWeekButton.jsx'; // Import SimWeekButton
 import PlayersHub from './PlayersHub.jsx';
 import StatsHub from './StatsHub.jsx';
+import ScriptsHub from './ScriptsHub.jsx';
 import { teams, teamLogos } from '../teams.js';
 import { Player, Team, MatchSimulator, ROLES } from '../simulation.js';
 import { saveCareer, loadCareer } from '../career_local_storage.jsx';
@@ -12,6 +13,52 @@ const CareerContent = ({ activeSection, activeSave, setActiveSave }) => {
   const [selectedMessage, setSelectedMessage] = useState(null);
   const [activeLeagueTab, setActiveLeagueTab] = useState('news');
   const [leagueTickerItems, setLeagueTickerItems] = useState([]);
+
+  // Strategy State Management
+  const [teamStrategy, setTeamStrategy] = useState({
+    playstyle: 'balanced', // balanced, aggressive, defensive, tactical
+    focus: 'standard', // standard, entry, trade, map-control, retake
+    eco: 'standard', // standard, stingy, aggressive-buy
+    activity: 'standard' // standard, scrim, practice, bonding
+  });
+
+  const [selectedMatchLogs, setSelectedMatchLogs] = useState(null);
+
+  const handleMatchClick = (match) => {
+    // If clicking same match, toggle off
+    if (selectedMatchLogs?.id === match.id) {
+      setSelectedMatchLogs(null);
+    } else {
+      // Find logs from either history item directly or its details
+      const logs = match.logs || match.details?.logs;
+      if (logs) {
+        setSelectedMatchLogs({ 
+          id: match.id || Math.random(), 
+          logs: logs, 
+          title: match.text 
+        });
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (activeSave?.strategies) {
+      setTeamStrategy(activeSave.strategies);
+    }
+  }, [activeSave?.id]);
+
+  const updateStrategy = (key, value) => {
+    const newStrategy = { ...teamStrategy, [key]: value };
+    setTeamStrategy(newStrategy);
+    
+    // Persist to activeSave
+    const updatedSave = {
+      ...activeSave,
+      strategies: newStrategy
+    };
+    setActiveSave(updatedSave);
+    saveCareer(updatedSave);
+  };
 
   // Calculate dynamic league records based on all match data
   const leagueRecords = React.useMemo(() => {
@@ -201,6 +248,16 @@ const CareerContent = ({ activeSection, activeSave, setActiveSave }) => {
   const playerCount = myPlayers.length;
 
   useEffect(() => {
+    const handleCareerUpdate = (event) => {
+      console.log("CareerContent: careerUpdate event received", event.detail);
+      setActiveSave(event.detail);
+    };
+
+    window.addEventListener('careerUpdate', handleCareerUpdate);
+    return () => window.removeEventListener('careerUpdate', handleCareerUpdate);
+  }, [setActiveSave]);
+
+  useEffect(() => {
     if (activeSave && activeSave.inbox && activeSave.inbox.length > 0) {
       setSelectedMessage(activeSave.inbox[0]);
     }
@@ -289,11 +346,40 @@ const CareerContent = ({ activeSection, activeSave, setActiveSave }) => {
               </div>
             </div>
           </div>
-          <div id="championship-points" className="box">
-            <h3>Championship Points</h3>
-            <ul>
-              <li>EMEA</li>
-            </ul>
+          <div className="dashboard-grid-bottom">
+            <div id="championship-points" className="box">
+              <h3>Championship Points</h3>
+              <div className="points-list">
+                {activeSave?.championshipPoints && Object.keys(activeSave.championshipPoints).length > 0 ? (
+                  Object.entries(activeSave.championshipPoints)
+                    .sort(([, a], [, b]) => b - a)
+                    .map(([teamName, points]) => (
+                      <div key={teamName} className="point-item">
+                        <span className="point-team">{teamName}</span>
+                        <span className="point-value">{points} pts</span>
+                      </div>
+                    ))
+                ) : (
+                  <div className="no-points">No points awarded yet.</div>
+                )}
+              </div>
+            </div>
+
+            <div id="masters-qualifications" className="box">
+              <h3>Masters Bangkok Qualifications</h3>
+              <div className="qual-list">
+                {activeSave?.mastersQualifications && activeSave.mastersQualifications.length > 0 ? (
+                  activeSave.mastersQualifications.map((teamName) => (
+                    <div key={teamName} className="qual-item">
+                      <span className="qual-team">{teamName}</span>
+                      <span className="qual-status">Qualified</span>
+                    </div>
+                  ))
+                ) : (
+                  <div className="no-qual">No teams qualified yet.</div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -327,8 +413,35 @@ const CareerContent = ({ activeSection, activeSave, setActiveSave }) => {
             </div>
           </div>
           
-          <div className="team-management-layout">
-            <div className="management-main">
+          <div className="team-management-dashboard">
+            <div className="box performance-box horizontal">
+              <div className="performance-stats-row">
+                {activeSave ? (
+                  <>
+                    <div className="stat-card">
+                      <div className="stat-title">Overall Power</div>
+                      <div className="stat-value">{teamInfo.power}</div>
+                    </div>
+                    <div className="stat-card">
+                      <div className="stat-title">Team Potential</div>
+                      <div className="stat-value">{teamInfo.potential}</div>
+                    </div>
+                    <div className="stat-card">
+                      <div className="stat-title">Region</div>
+                      <div className="stat-value">{activeSave?.region || 'Unknown'}</div>
+                    </div>
+                    <div className="stat-card">
+                      <div className="stat-title">Budget</div>
+                      <div className="stat-value budget-value">${(activeSave?.budget || 0).toLocaleString()}</div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="performance-placeholder">Please start a career to view team performance</div>
+                )}
+              </div>
+            </div>
+
+            <div className="management-main-content">
               <div className="box roster-box">
                 <div className="box-header">
                   <h3>Team Roster</h3>
@@ -346,38 +459,6 @@ const CareerContent = ({ activeSection, activeSave, setActiveSave }) => {
                     </div>
                   ) : (
                     <div className="roster-placeholder">Please start a career to view your team roster</div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <div className="management-sidebar">
-              <div className="box performance-box">
-                <h3>Team Performance</h3>
-                <div id="team-performance">
-                  {activeSave ? (
-                    <div className="team-performance-container">
-                      <div className="team-stats-grid">
-                        <div className="stat-card">
-                          <div className="stat-title">Overall Power</div>
-                          <div className="stat-value">{teamInfo.power}</div>
-                        </div>
-                        <div className="stat-card">
-                          <div className="stat-title">Team Potential</div>
-                          <div className="stat-value">{teamInfo.potential}</div>
-                        </div>
-                        <div className="stat-card">
-                          <div className="stat-title">Region</div>
-                          <div className="stat-value">{activeSave?.region || 'Unknown'}</div>
-                        </div>
-                        <div className="stat-card">
-                          <div className="stat-title">Budget</div>
-                          <div className="stat-value budget-value">${(activeSave?.budget || 0).toLocaleString()}</div>
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="performance-placeholder">Please start a career to view team performance</div>
                   )}
                 </div>
               </div>
@@ -507,7 +588,7 @@ const CareerContent = ({ activeSection, activeSave, setActiveSave }) => {
 
             {activeLeagueTab === 'schedule' && (
               <div className="tab-pane schedule-pane">
-                <div className="league-grid single-col">
+                <div className="league-grid">
                   <div className="box schedule-box">
                     <h3>Season Schedule</h3>
                     <div className="schedule-list">
@@ -515,9 +596,14 @@ const CareerContent = ({ activeSection, activeSave, setActiveSave }) => {
                         activeSave.history
                           .filter(h => h.type === 'match' && h.week === activeSave.week)
                           .map((match, idx) => (
-                            <div key={idx} className="schedule-item">
+                            <div 
+                              key={idx} 
+                              className={`schedule-item clickable ${selectedMatchLogs?.id === (match.id || idx) ? 'active' : ''}`}
+                              onClick={() => handleMatchClick(match)}
+                            >
                               <span className="match-status">COMPLETED</span>
                               <span className="match-teams">{match.text}</span>
+                              {(match.logs || match.details?.logs) && <span className="view-logs-hint">View Logs</span>}
                             </div>
                           ))
                       ) : (
@@ -528,6 +614,40 @@ const CareerContent = ({ activeSection, activeSave, setActiveSave }) => {
                         <p className="hint-text">Simulate week to see next results.</p>
                       </div>
                     </div>
+                  </div>
+
+                  <div className="box match-logs-box">
+                    <h3>Match Analysis</h3>
+                    {selectedMatchLogs ? (
+                      <div className="logs-container">
+                        <h4>{selectedMatchLogs.title}</h4>
+                        <div className="logs-list">
+                          {selectedMatchLogs.logs.map((mapLog, mIdx) => (
+                            <div key={mIdx} className="map-log-section">
+                              <h5 className="map-title">Map {mapLog.map + 1} ({mapLog.score})</h5>
+                              {mapLog.events.map((event, eIdx) => (
+                                <div key={eIdx} className={`log-event ${
+                                  event.includes('pushing aggressively') || 
+                                  event.includes('fast site hit') || 
+                                  event.includes('bunkered down') || 
+                                  event.includes('slow and methodical') ||
+                                  event.includes('high-risk picks') ||
+                                  event.includes('map info') ||
+                                  event.includes('mid-round adjustments')
+                                  ? 'strategy-event' : ''}`}>
+                                  <span className="event-bullet">•</span>
+                                  <span className="event-text">{event}</span>
+                                </div>
+                              ))}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="no-logs-selected">
+                        <p>Select a completed match to view strategy impact and round-by-round analysis.</p>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -617,63 +737,111 @@ const CareerContent = ({ activeSection, activeSave, setActiveSave }) => {
         </div>
       )}
 
+      {/* Strategies Section */}
       {activeSection === 'career-strategy' && (
-        <div id="career-strategy" className="content-section">
-          <h2>Team Strategy & Tactics</h2>
-          
-          <div className="strategy-grid">
-            <div className="box">
-              <h3>General Strategy</h3>
-              <div className="setting-group">
-                <h4>Playstyle</h4>
-                <div className="setting-options vertical">
-                  <button className="strategy-btn active">Balanced</button>
-                  <button className="strategy-btn">Aggressive (Fast Executes)</button>
-                  <button className="strategy-btn">Defensive (Map Control)</button>
-                  <button className="strategy-btn">Contact (Quiet Entry)</button>
-                </div>
+        <div className="career-strategies content-section">
+          <header className="section-header">
+            <h2>Team Strategies</h2>
+            <p>Define how your team plays during matches. These settings affect win probabilities and individual performance.</p>
+          </header>
+
+          <div className="strategies-grid">
+            <div className="box strategy-box">
+              <div className="strategy-header">
+                <i className="strategy-icon">⚔️</i>
+                <h3>General Playstyle</h3>
               </div>
-              
-              <div className="setting-group">
-                <h4>Practice Focus</h4>
-                <div className="setting-options grid">
-                  <button className="practice-btn active">All-Around</button>
-                  <button className="practice-btn">Aim Training</button>
-                  <button className="practice-btn">Strategy</button>
-                  <button className="practice-btn">Team Chemistry</button>
-                  <button className="practice-btn">Utility Usage</button>
-                  <button className="practice-btn">Clutch Situations</button>
-                </div>
+              <p className="strategy-desc">Sets the overall tempo and risk level for your team.</p>
+              <div className="strategy-options">
+                {[
+                  { id: 'balanced', label: 'Balanced', desc: 'No specific bonuses or penalties.' },
+                  { id: 'aggressive', label: 'Aggressive', desc: '+5% Attack win chance, -5% Defense.' },
+                  { id: 'defensive', label: 'Defensive', desc: '+5% Defense win chance, -5% Attack.' },
+                  { id: 'tactical', label: 'Tactical', desc: 'Higher variance; rewards high Game Sense.' }
+                ].map(opt => (
+                  <button 
+                    key={opt.id}
+                    className={`strategy-btn ${teamStrategy.playstyle === opt.id ? 'active' : ''}`}
+                    onClick={() => updateStrategy('playstyle', opt.id)}
+                  >
+                    <span className="opt-label">{opt.label}</span>
+                    <span className="opt-desc">{opt.desc}</span>
+                  </button>
+                ))}
               </div>
             </div>
 
-            <div className="box">
-              <h3>Tactical Settings</h3>
-              <div className="setting-group">
-                <h4>Economy Management</h4>
-                <div className="setting-options vertical">
-                  <button className="strategy-btn active">Standard (Save at 2k)</button>
-                  <button className="strategy-btn">Aggressive (Force Buy Often)</button>
-                  <button className="strategy-btn">Conservative (Full Save for Ops)</button>
-                </div>
+            <div className="box strategy-box">
+              <div className="strategy-header">
+                <i className="strategy-icon">🎯</i>
+                <h3>Tactical Focus</h3>
               </div>
-
-              <div className="setting-group">
-                <h4>Map Priority</h4>
-                <div className="setting-options grid">
-                  <button className="strategy-btn active">Balanced</button>
-                  <button className="strategy-btn">Site Retakes</button>
-                  <button className="strategy-btn">Mid Control</button>
-                  <button className="strategy-btn">Entry Fragging</button>
-                </div>
+              <p className="strategy-desc">Determines which phase of the round your team prioritizes.</p>
+              <div className="strategy-options">
+                {[
+                  { id: 'standard', label: 'Standard', desc: 'Default spread of focus.' },
+                  { id: 'entry', label: 'Fast Entry', desc: 'Better at opening sites (+3% Atk).' },
+                  { id: 'map-control', label: 'Map Control', desc: 'Better defensive info (+3% Def).' },
+                  { id: 'tactical', label: 'Tactical Focus', desc: 'Higher variance matches.' }
+                ].map(opt => (
+                  <button 
+                    key={opt.id}
+                    className={`strategy-btn ${teamStrategy.focus === opt.id ? 'active' : ''}`}
+                    onClick={() => updateStrategy('focus', opt.id)}
+                  >
+                    <span className="opt-label">{opt.label}</span>
+                    <span className="opt-desc">{opt.desc}</span>
+                  </button>
+                ))}
               </div>
             </div>
 
-            <div className="box full-row">
-              <h3>Agent Composition Strategy</h3>
-              <div className="agent-strategy-info">
-                <p>Customize how your team prioritizes agent picks and utility combinations during matches.</p>
-                <div className="coming-soon-tag">Advanced Tactics Coming Soon</div>
+            <div className="box strategy-box">
+              <div className="strategy-header">
+                <i className="strategy-icon">💰</i>
+                <h3>Economic Policy</h3>
+              </div>
+              <p className="strategy-desc">Controls how aggressively your team spends credits.</p>
+              <div className="strategy-options">
+                {[
+                  { id: 'standard', label: 'Standard', desc: 'Traditional buy/save cycles.' },
+                  { id: 'stingy', label: 'Stingy', desc: 'Save more often to ensure full buys later.' },
+                  { id: 'aggressive-buy', label: 'Aggressive Buy', desc: 'More frequent force buys and half-buys.' }
+                ].map(opt => (
+                  <button 
+                    key={opt.id}
+                    className={`strategy-btn ${teamStrategy.eco === opt.id ? 'active' : ''}`}
+                    onClick={() => updateStrategy('eco', opt.id)}
+                  >
+                    <span className="opt-label">{opt.label}</span>
+                    <span className="opt-desc">{opt.desc}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="box strategy-box">
+              <div className="strategy-header">
+                <i className="strategy-icon">🏃</i>
+                <h3>Weekly Activity</h3>
+              </div>
+              <p className="strategy-desc">Choose what your team focuses on during the week.</p>
+              <div className="strategy-options">
+                {[
+                  { id: 'standard', label: 'Standard Training', desc: 'Balanced improvement across all stats.' },
+                  { id: 'scrim', label: 'Scrimmage', desc: 'Practice matches against other teams. High stat gains.' },
+                  { id: 'practice', label: 'Individual Practice', desc: 'Focus on raw mechanics (Aim/Movement).' },
+                  { id: 'bonding', label: 'Team Bonding', desc: 'Improves Teamwork and Mental stats.' }
+                ].map(opt => (
+                  <button 
+                    key={opt.id}
+                    className={`strategy-btn ${teamStrategy.activity === opt.id ? 'active' : ''}`}
+                    onClick={() => updateStrategy('activity', opt.id)}
+                  >
+                    <span className="opt-label">{opt.label}</span>
+                    <span className="opt-desc">{opt.desc}</span>
+                  </button>
+                ))}
               </div>
             </div>
           </div>
@@ -688,10 +856,7 @@ const CareerContent = ({ activeSection, activeSave, setActiveSave }) => {
 
       {activeSection === 'career-scripts' && (
         <div id="career-scripts" className="content-section">
-          <h2>Scripts</h2>
-          <div className="scripts-container">
-            <p>Scripts content coming soon</p>
-          </div>
+          <ScriptsHub activeSave={activeSave} setActiveSave={setActiveSave} />
         </div>
       )}
 
@@ -739,6 +904,96 @@ const CareerContent = ({ activeSection, activeSave, setActiveSave }) => {
           ></iframe>
         </div>
       )}
+
+      {activeSection === 'masters-bangkok' && (
+        <div id="masters-section" className="content-section" style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          <iframe 
+            id="masters-iframe" 
+            src="masters_bangkok.html" 
+            style={{ 
+              width: '100%', 
+              height: '100%', 
+              minHeight: '800px',
+              border: 'none',
+              overflow: 'hidden'
+            }} 
+            title="Masters Bangkok Bracket"
+          ></iframe>
+        </div>
+      )}
+
+      {/* Player Edit Modal - Essential for Manage Team section */}
+      <div id="player-edit-modal" className="modal">
+        <div className="modal-content">
+          <span className="close-button">&times;</span>
+          <h3>Edit Player Attributes</h3>
+          <form id="player-edit-form">
+            <input type="hidden" id="edit-player-id" />
+            
+            <div className="form-row">
+              <div className="form-group">
+                <label htmlFor="edit-player-name">Name:</label>
+                <input type="text" id="edit-player-name" disabled />
+              </div>
+              <div className="form-group">
+                <label htmlFor="edit-player-gamertag">Gamertag:</label>
+                <input type="text" id="edit-player-gamertag" />
+              </div>
+            </div>
+
+            <div className="form-row">
+              <div className="form-group">
+                <label htmlFor="edit-player-role">Role:</label>
+                <select id="edit-player-role">
+                  <option value="Duelist">Duelist</option>
+                  <option value="Initiator">Initiator</option>
+                  <option value="Controller">Controller</option>
+                  <option value="Sentinel">Sentinel</option>
+                  <option value="Flex">Flex</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label htmlFor="edit-player-nationality">Nationality:</label>
+                <input type="text" id="edit-player-nationality" />
+              </div>
+            </div>
+
+            <div className="form-row">
+              <div className="form-group">
+                <label htmlFor="edit-player-age">Age:</label>
+                <input type="number" id="edit-player-age" min="16" max="30" />
+              </div>
+              <div className="form-group">
+                <label htmlFor="edit-player-salary">Salary ($):</label>
+                <input type="number" id="edit-player-salary" min="0" step="1000" />
+              </div>
+            </div>
+            
+            <div className="edit-stats-grid">
+              {[
+                { id: 'aim', label: 'Aim' },
+                { id: 'movement', label: 'Movement' },
+                { id: 'gamesense', label: 'Game Sense' },
+                { id: 'clutch', label: 'Clutch' },
+                { id: 'aggression', label: 'Aggression' },
+                { id: 'utility', label: 'Utility' },
+                { id: 'mental', label: 'Mental' },
+                { id: 'teamwork', label: 'Teamwork' },
+                { id: 'consistency', label: 'Consistency' },
+                { id: 'potential', label: 'Potential' }
+              ].map(stat => (
+                <div key={stat.id} className="edit-stat-item">
+                  <label htmlFor={`edit-player-${stat.id}`}>{stat.label}:</label>
+                  <input type="range" id={`edit-player-${stat.id}`} min="0" max="100" />
+                  <span id={`edit-player-${stat.id}-value`}></span>
+                </div>
+              ))}
+            </div>
+            
+            <button type="submit" className="btn-save">Save Changes</button>
+          </form>
+        </div>
+      </div>
     </div>
   );
 };

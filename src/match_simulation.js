@@ -42,6 +42,7 @@ let team1Picks = 0;
 let team2Picks = 0;
 let currentBanPickPhase = 'ban1'; // Start with Team 1 banning
 let playerTeamName = 'TBD';
+let teamStrategies = {}; // Store strategy for each team
 let isAiMoving = false; // Flag to prevent multiple AI moves
 
 const normalizeName = (n) => {
@@ -65,6 +66,13 @@ export function displayMatchDetails() {
     const activeSave = loadCareer();
     // Prioritize URL parameter, then career save, then fallback to 'TBD'
     playerTeamName = urlPlayerTeam || (activeSave ? activeSave.team : 'TBD');
+    
+    // Load strategies if this is a player team
+    if (activeSave?.strategies) {
+        if (team1Name === activeSave.team) teamStrategies[t1Data.id] = activeSave.strategies;
+        if (team2Name === activeSave.team) teamStrategies[t2Data.id] = activeSave.strategies;
+    }
+
     console.log(`Match Simulation initialized: MatchID=${matchId}, PlayerTeam=${playerTeamName}, Team1=${team1Name}, Team2=${team2Name}`);
 
     const t1Data = getSafeTeamByName(team1Name);
@@ -454,8 +462,15 @@ function renderPlayerSelection() {
         const isSelected = team1ActivePlayers.some(p => p.id === player.id);
         if (isSelected) playerItem.classList.add('selected');
         
+        const kills = player.kills || (player.stats ? player.stats.kills : 0);
+        const deaths = player.deaths || (player.stats ? player.stats.deaths : 0);
+        const assists = player.assists || (player.stats ? player.stats.assists : 0);
+
         playerItem.innerHTML = `
-            <span>${player.name}</span>
+            <div style="display: flex; flex-direction: column;">
+                <span>${player.name}</span>
+                <span style="font-size: 10px; color: var(--v-light-grey);">${kills}/${deaths}/${assists}</span>
+            </div>
             <span class="role-tag">${player.role}</span>
         `;
         playerItem.addEventListener('click', () => togglePlayerSelection(player, team1ActivePlayers, team1ActivePlayersElement));
@@ -470,8 +485,15 @@ function renderPlayerSelection() {
         const isSelected = team2ActivePlayers.some(p => p.id === player.id);
         if (isSelected) playerItem.classList.add('selected');
 
+        const kills = player.kills || (player.stats ? player.stats.kills : 0);
+        const deaths = player.deaths || (player.stats ? player.stats.deaths : 0);
+        const assists = player.assists || (player.stats ? player.stats.assists : 0);
+
         playerItem.innerHTML = `
-            <span>${player.name}</span>
+            <div style="display: flex; flex-direction: column;">
+                <span>${player.name}</span>
+                <span style="font-size: 10px; color: var(--v-light-grey);">${kills}/${deaths}/${assists}</span>
+            </div>
             <span class="role-tag">${player.role}</span>
         `;
         playerItem.addEventListener('click', () => togglePlayerSelection(player, team2ActivePlayers, team2ActivePlayersElement));
@@ -498,7 +520,15 @@ function renderActivePlayers() {
     team1ActivePlayers.forEach(player => {
         const playerItem = document.createElement('div');
         playerItem.classList.add('player-item', 'selected');
-        playerItem.textContent = player.name;
+        
+        const kills = player.kills || (player.stats ? player.stats.kills : 0);
+        const deaths = player.deaths || (player.stats ? player.stats.deaths : 0);
+        const assists = player.assists || (player.stats ? player.stats.assists : 0);
+        
+        playerItem.innerHTML = `
+            <span>${player.name}</span>
+            <span class="stats-tag">${kills}/${deaths}/${assists}</span>
+        `;
         team1ActivePlayersElement.appendChild(playerItem);
     });
 
@@ -506,7 +536,15 @@ function renderActivePlayers() {
     team2ActivePlayers.forEach(player => {
         const playerItem = document.createElement('div');
         playerItem.classList.add('player-item', 'selected');
-        playerItem.textContent = player.name;
+        
+        const kills = player.kills || (player.stats ? player.stats.kills : 0);
+        const deaths = player.deaths || (player.stats ? player.stats.deaths : 0);
+        const assists = player.assists || (player.stats ? player.stats.assists : 0);
+
+        playerItem.innerHTML = `
+            <span>${player.name}</span>
+            <span class="stats-tag">${kills}/${deaths}/${assists}</span>
+        `;
         team2ActivePlayersElement.appendChild(playerItem);
     });
 }
@@ -557,30 +595,69 @@ function handleNextRound() {
     // Create temporary Team objects with only active players for the simulator
     const activeTeam1 = new Team(team1.name);
     activeTeam1.players = team1ActivePlayers;
-    activeTeam1.side = currentRound <= 12 ? 'attack' : 'defense'; // Simple side logic
     
-    const activeTeam2 = new Team(team2.name);
+    // Determine sides based on round number
+    if (currentRound <= 12) {
+        activeTeam1.side = 'attack';
+    } else if (currentRound <= 24) {
+        activeTeam1.side = 'defense';
+    } else {
+        // Overtime: switch every 2 rounds (25, 26 -> A, D; 27, 28 -> D, A; etc.)
+        const otRound = currentRound - 24;
+        const otSet = Math.ceil(otRound / 2);
+        if (otSet % 2 === 1) {
+            // Odd sets (1st, 3rd, etc.): 25 is Attack, 26 is Defense
+            activeTeam1.side = otRound % 2 === 1 ? 'attack' : 'defense';
+        } else {
+            // Even sets (2nd, 4th, etc.): 27 is Defense, 28 is Attack
+            activeTeam1.side = otRound % 2 === 1 ? 'defense' : 'attack';
+        }
+    }
+    
+    const activeTeam2 = new Team(team2.name, team2.id);
     activeTeam2.players = team2ActivePlayers;
     activeTeam2.side = activeTeam1.side === 'attack' ? 'defense' : 'attack';
 
+    // Update active players to have the correct teamId for simulation logic
+    team1ActivePlayers.forEach(p => p.teamId = team1.id);
+    team2ActivePlayers.forEach(p => p.teamId = team2.id);
+
+    // Log side switch or OT
+    if (currentRound === 13) addLog("Sides switched!", "info");
+    if (currentRound === 25) addLog("MATCH GOING TO OVERTIME!", "info");
+    if (currentRound > 25 && (currentRound - 25) % 2 === 0) addLog("Overtime sides switched!", "info");
+
+    const roundLogs = [];
     // Use RoundSimulator from simulation.js
     const roundSim = new RoundSimulator(
         activeTeam1.side === 'attack' ? activeTeam1 : activeTeam2,
         activeTeam1.side === 'defense' ? activeTeam1 : activeTeam2,
         currentRound, 
-        []
+        roundLogs,
+        teamStrategies
     );
     const result = roundSim.simulateRound();
     
+    // Add round-specific strategy logs to the UI
+    roundLogs.forEach(log => {
+        addLog(log, 'strategy-log');
+    });
+
     // Sync stats from the active player objects back to our rosters
     // This ensures that p.stats (which RoundSimulator modifies) is preserved
     [...team1ActivePlayers, ...team2ActivePlayers].forEach(activePlayer => {
-        const rosterPlayer = [...team1Roster, ...team2Roster].find(p => p.id === activePlayer.id);
+        const rosterPlayer = [...team1Roster, ...team2Roster].find(p => p.id === activePlayer.id || p.name === activePlayer.name);
         if (rosterPlayer) {
-            rosterPlayer.stats = activePlayer.stats;
+            rosterPlayer.stats = { ...activePlayer.stats };
             rosterPlayer.kills = activePlayer.kills;
             rosterPlayer.deaths = activePlayer.deaths;
             rosterPlayer.assists = activePlayer.assists;
+            // Ensure consistency between stats object and top-level properties
+            if (rosterPlayer.stats) {
+                rosterPlayer.stats.kills = activePlayer.kills;
+                rosterPlayer.stats.deaths = activePlayer.deaths;
+                rosterPlayer.stats.assists = activePlayer.assists;
+            }
         }
     });
 
@@ -589,6 +666,11 @@ function handleNextRound() {
     
     updateScore(winnerTeamIndex);
     addLog(`Round ${currentRound}: ${winner.name} wins! (${team1Score}-${team2Score})`, winnerTeamIndex === 1 ? 'team1-win' : 'team2-win');
+    
+    // Update UI to show new stats
+    renderActivePlayers();
+    renderPlayerSelection();
+    
     saveMatchState();
 }
 

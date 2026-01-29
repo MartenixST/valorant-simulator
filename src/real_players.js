@@ -20,6 +20,13 @@ export const realPlayers = {
         { name: "cauanzin", role: "Initiator", nationality: "Brazil", age: 18, baseRating: 83 },
         { name: "v1nNy", role: "Initiator", nationality: "Brazil", age: 22, baseRating: 80 }
     ],
+    "Leviatan": [
+        { name: "kiNgg", role: "Controller", nationality: "Chile", age: 22, baseRating: 87 },
+        { name: "tex", role: "Duelist", nationality: "USA", age: 24, baseRating: 84 },
+        { name: "C0M", role: "Initiator", nationality: "USA", age: 25, baseRating: 83 },
+        { name: "okeanos", role: "Duelist", nationality: "Brazil", age: 19, baseRating: 81 },
+        { name: "Sato", role: "Duelist", nationality: "USA", age: 18, baseRating: 82 }
+    ],
     "Leviatán": [
         { name: "kiNgg", role: "Controller", nationality: "Chile", age: 22, baseRating: 87 },
         { name: "tex", role: "Duelist", nationality: "USA", age: 24, baseRating: 84 },

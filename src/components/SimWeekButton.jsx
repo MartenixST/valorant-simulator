@@ -1,22 +1,53 @@
 import React, { useState } from 'react';
-import { handleAiRosterChanges } from '../ai_manager.js';
+import { handleAiRosterChanges, hireFreeAgentForTeam } from '../ai_manager.js';
 import { saveCareer, getKickoffState } from '../career_local_storage.jsx';
 import { Player, Team, MatchSimulator } from '../simulation.js';
 import { teams, teamLogos } from '../teams.js';
 import CareerLoadingOverlay from './CareerLoadingOverlay.jsx';
+import { generateKickoffState, automateKickoffTournament, getQualifiedTeams } from '../kickoff_automation.js';
 
 const SimWeekButton = ({ activeSave, setActiveSave }) => {
   const [isSimulating, setIsSimulating] = useState(false);
 
+  // Helper to generate a random strategy for AI teams
+  const generateAiStrategy = () => {
+    const playstyles = ['aggressive', 'defensive', 'balanced'];
+    const focuses = ['standard', 'entry', 'map-control', 'tactical'];
+    const ecos = ['standard', 'greedy', 'safe'];
+
+    return {
+      playstyle: playstyles[Math.floor(Math.random() * playstyles.length)],
+      focus: focuses[Math.floor(Math.random() * focuses.length)],
+      eco: ecos[Math.floor(Math.random() * ecos.length)]
+    };
+  };
+
   // Helper to simulate a match and return player stats
-  const simulateAiMatch = (team1Data, team2Data, savePlayers) => {
+  const simulateAiMatch = (team1Data, team2Data, savePlayers, strategies = {}) => {
     // 1. Prepare Team objects
     const t1 = new Team(team1Data.name, team1Data.id);
     const t2 = new Team(team2Data.name, team2Data.id);
 
     // 2. Assign players to teams
-    const t1Players = savePlayers.filter(p => String(p.teamId) === String(team1Data.id));
-    const t2Players = savePlayers.filter(p => String(p.teamId) === String(team2Data.id));
+    const t1Players = savePlayers.filter(p => {
+      const pTeamId = p.teamId ? String(p.teamId) : null;
+      if (team1Data.id && pTeamId) {
+          return pTeamId === String(team1Data.id);
+      }
+      const normalize = (n) => String(n || '').toLowerCase().trim();
+      const pTeamNameNorm = normalize(p.team);
+      return team1Data.name && pTeamNameNorm && pTeamNameNorm === normalize(team1Data.name);
+    });
+
+    const t2Players = savePlayers.filter(p => {
+      const pTeamId = p.teamId ? String(p.teamId) : null;
+      if (team2Data.id && pTeamId) {
+          return pTeamId === String(team2Data.id);
+      }
+      const normalize = (n) => String(n || '').toLowerCase().trim();
+      const pTeamNameNorm = normalize(p.team);
+      return team2Data.name && pTeamNameNorm && pTeamNameNorm === normalize(team2Data.name);
+    });
 
     // Convert to Player instances
     t1.players = t1Players.map(p => Player.fromJSON(p));
@@ -27,6 +58,7 @@ const SimWeekButton = ({ activeSave, setActiveSave }) => {
     let t2Maps = 0;
     const mapResults = [];
     const allPlayerStats = {};
+    const matchLogs = [];
 
     // Initialize stats tracking
     [...t1.players, ...t2.players].forEach(p => {
@@ -49,11 +81,13 @@ const SimWeekButton = ({ activeSave, setActiveSave }) => {
       t1.side = 'attack';
       t2.side = 'defense';
       
-      const matchSim = new MatchSimulator(t1, t2);
+      const currentMapLogs = [];
+      const matchSim = new MatchSimulator(t1, t2, currentMapLogs, strategies);
       matchSim.simulateMatch();
 
       const mapScore = `${t1.score}-${t2.score}`;
       mapResults.push({ score: mapScore });
+      matchLogs.push({ map: mapResults.length, score: mapScore }); // Removed events: [...currentMapLogs] to save space
 
       if (t1.score >= 13) t1Maps++;
       else t2Maps++;
@@ -76,14 +110,23 @@ const SimWeekButton = ({ activeSave, setActiveSave }) => {
       loser: t1Maps > t2Maps ? team2Data.name : team1Data.name,
       score: `${t1Maps}-${t2Maps}`,
       playerStats: allPlayerStats,
-      mapResults: mapResults
+      mapResults: mapResults,
+      logs: matchLogs
     };
   };
 
   const generateContendersMessage = (players) => {
     // Calculate current power/potential for ALL teams based on players in the save
     const teamStats = teams.map(t => {
-        const teamPlayers = players.filter(p => String(p.teamId) === String(t.id));
+        const teamPlayers = players.filter(p => {
+            const pTeamId = p.teamId ? String(p.teamId) : null;
+            if (t.id && pTeamId) {
+                return pTeamId === String(t.id);
+            }
+            const normalize = (n) => String(n || '').toLowerCase().trim();
+            const pTeamNameNorm = normalize(p.team);
+            return t.name && pTeamNameNorm && pTeamNameNorm === normalize(t.name);
+        });
         const avgPower = teamPlayers.length > 0 
             ? Math.round((teamPlayers.reduce((sum, p) => sum + (p.overall || 75), 0) / teamPlayers.length) * 10) / 10
             : Math.round((t.power || 75) * 10) / 10;
@@ -199,54 +242,185 @@ const SimWeekButton = ({ activeSave, setActiveSave }) => {
   };
 
   const handleSimulateWeek = () => {
-    if (!activeSave) return;
+    // 1. Check if Kickoff is complete if we are on Week 4
+    const currentWeek = activeSave.week || 1;
+    if (currentWeek === 4) {
+      const playerTeam = teams.find(t => String(t.id) === String(activeSave.teamId));
+      if (playerTeam) {
+        const region = playerTeam.region;
+        const kickoffState = getKickoffState(activeSave.id);
+        
+        // Check if the grand final has a winner
+        const isKickoffComplete = kickoffState && 
+                                  kickoffState.series && 
+                                  kickoffState.series['K-GF'] && 
+                                  kickoffState.series['K-GF'].winner;
+        
+        if (!isKickoffComplete) {
+          alert(`You must complete the ${region} Kickoff tournament before simulating to Week 5!`);
+          setIsSimulating(false);
+          return;
+        }
+      }
+    }
+
+    // 2. Check if player team is eligible (min 5 players) for MATCHES
+    const myPlayers = activeSave.players.filter(p => {
+        const normalize = (n) => String(n || '').toLowerCase().trim();
+        const pTeamId = p.teamId ? String(p.teamId) : null;
+        const pTeamNameNorm = normalize(p.team);
+        const activeTeamId = activeSave.teamId ? String(activeSave.teamId) : null;
+        const activeTeamNameNorm = normalize(activeSave.team);
+        return (activeTeamId && pTeamId === activeTeamId) || (activeTeamNameNorm && pTeamNameNorm === activeTeamNameNorm);
+    });
+
+    // We no longer block the entire week simulation if < 5 players.
+    // Instead, matches will handle forfeits if a team has < 5 players.
+    // However, we should still warn the user if they are going into a match without a full roster.
 
     setIsSimulating(true);
 
     // Add a small delay for the animation effect
     setTimeout(() => {
+      const currentWeek = activeSave.week || 1;
+      const isPrepWeek = currentWeek <= 3;
+      
       // 1. Increment week
-      let nextWeek = (activeSave.week || 1) + 1;
+      let nextWeek = currentWeek + 1;
       let nextSeason = activeSave.season || 1;
       
       // 2. AI Roster Changes
       const { updatedSave: aiUpdatedSave, changes: rosterChanges } = handleAiRosterChanges(activeSave);
 
-      // 2.5 Simulate AI Team Matches
+      // 2.5 Simulate AI Team Matches (Only if not prep week)
       const simulatedMatches = [];
       const aiTeams = teams.filter(t => String(t.id) !== String(activeSave.teamId));
       
-      // Group teams by region and simulate some intra-regional matches
+      // Player team strategy (defaults if not set)
+      const playerTeamStrategy = activeSave.strategies || {
+        playstyle: 'balanced',
+        focus: 'standard',
+        eco: 'standard',
+        activity: 'standard'
+      };
+
       const regions = ["Americas", "EMEA", "Pacific", "China"];
-      regions.forEach(region => {
-        const regionalTeams = aiTeams.filter(t => t.region === region);
-        // Shuffle and pair up teams for some matches this week
-        const shuffled = [...regionalTeams].sort(() => 0.5 - Math.random());
-        for (let i = 0; i < shuffled.length - 1; i += 2) {
-          const t1 = shuffled[i];
-          const t2 = shuffled[i+1];
+
+      if (!isPrepWeek) {
+        // Group teams by region and simulate some intra-regional matches
+        regions.forEach(region => {
+          const regionalTeams = aiTeams.filter(t => t.region === region);
+          // Shuffle and pair up teams for some matches this week
+          const shuffled = [...regionalTeams].sort(() => 0.5 - Math.random());
+          for (let i = 0; i < shuffled.length - 1; i += 2) {
+            const t1 = shuffled[i];
+            const t2 = shuffled[i+1];
+            
+            // 30% chance of a match happening between these two this week
+            if (Math.random() < 0.3) {
+              const t1Strategy = generateAiStrategy();
+              const t2Strategy = generateAiStrategy();
+              const matchStrategies = {
+                [t1.id]: t1Strategy,
+                [t2.id]: t2Strategy
+              };
+
+              const matchResult = simulateAiMatch(t1, t2, aiUpdatedSave.players, matchStrategies);
+              simulatedMatches.push({
+                winner: matchResult.winner,
+                loser: matchResult.loser,
+                score: matchResult.score,
+                region: region,
+                playerStats: matchResult.playerStats,
+                mapResults: matchResult.mapResults,
+                tournamentName: "Regular Season",
+                strategies: matchStrategies // Store strategies used in the match
+              });
+            }
+          }
+        });
+
+        // Special Case: Player team match simulation (50% chance each week during regular season)
+        if (Math.random() < 0.5) {
+          const playerTeamData = teams.find(t => String(t.id) === String(activeSave.teamId));
+          const opponentTeamData = aiTeams[Math.floor(Math.random() * aiTeams.length)];
           
-          // 30% chance of a match happening between these two this week
-          if (Math.random() < 0.3) {
-            const matchResult = simulateAiMatch(t1, t2, aiUpdatedSave.players);
+          if (playerTeamData && opponentTeamData) {
+            const opponentStrategy = generateAiStrategy();
+            const matchStrategies = {
+              [playerTeamData.id]: playerTeamStrategy,
+              [opponentTeamData.id]: opponentStrategy
+            };
+            
+            const matchResult = simulateAiMatch(playerTeamData, opponentTeamData, aiUpdatedSave.players, matchStrategies);
             simulatedMatches.push({
               winner: matchResult.winner,
               loser: matchResult.loser,
               score: matchResult.score,
-              region: region,
+              region: playerTeamData.region,
               playerStats: matchResult.playerStats,
               mapResults: matchResult.mapResults,
-              tournamentName: "Regular Season"
+              tournamentName: "Regular Season",
+              strategies: matchStrategies
             });
           }
         }
-      });
+      }
+
+      // KICKOFF AUTOMATION: Start on Week 4 (after 3 weeks of prep)
+      const allQualifiedTeams = activeSave.qualifiedTeams || {};
+      const kickoffResults = activeSave.kickoffResults || {};
+
+      if (currentWeek === 4) {
+        regions.forEach(region => {
+          // Check if this region's kickoff is already done
+          if (!kickoffResults[region] || kickoffResults[region].dirty) {
+            console.log(`Automating Kickoff for ${region}...`);
+            let regionState = generateKickoffState(region);
+            
+            // If it's the player's region, we might want to check if they have a state in localStorage
+            if (region === (teams.find(t => String(t.id) === String(activeSave.teamId))?.region)) {
+                const localState = getKickoffState(activeSave.id);
+                if (localState && !localState.dirty) {
+                    regionState = localState;
+                }
+            }
+
+            // Automate the tournament
+            const completedState = automateKickoffTournament(regionState, aiUpdatedSave.players, simulateAiMatch);
+            kickoffResults[region] = completedState;
+            allQualifiedTeams[region] = getQualifiedTeams(completedState);
+          }
+        });
+      }
 
       // 3. Player Development
       // Apply weekly stat fluctuations to all players
       const developedPlayers = aiUpdatedSave.players.map(pData => {
         const player = Player.fromJSON(pData);
-        player.rating.develop();
+        
+        // Use player team's strategy activity if it's the player's team, else random for AI
+        let activity = 'standard';
+        const isPlayerTeam = (function() {
+          const normalize = (n) => String(n || '').toLowerCase().trim();
+          const pTeamId = pData.teamId ? String(pData.teamId) : null;
+          const pTeamNameNorm = normalize(pData.team);
+          const activeTeamId = activeSave.teamId ? String(activeSave.teamId) : null;
+          const activeTeamNameNorm = normalize(activeSave.team);
+          const matchesId = activeTeamId && pTeamId && pTeamId === activeTeamId;
+          const matchesName = activeTeamNameNorm && pTeamNameNorm && pTeamNameNorm === activeTeamNameNorm;
+          return matchesId || matchesName;
+        })();
+
+        if (isPlayerTeam) {
+          activity = playerTeamStrategy.activity || 'standard';
+        } else {
+          // AI teams also practice/scrim occasionally
+          const activities = ['standard', 'scrim', 'practice', 'bonding'];
+          activity = activities[Math.floor(Math.random() * activities.length)];
+        }
+
+        player.rating.develop(activity);
         
         // Return updated data object
         return {
@@ -257,17 +431,23 @@ const SimWeekButton = ({ activeSave, setActiveSave }) => {
         };
       });
 
-      // 4. Process Pending Contract Offers
-      const processedOffers = [];
-      let updatedPlayersForOffers = [...developedPlayers];
-      const newInboxMessages = [];
-
-      if (activeSave.pendingOffers && activeSave.pendingOffers.length > 0) {
-        activeSave.pendingOffers.forEach(offer => {
-          const playerObj = updatedPlayersForOffers.find(p => p.id === offer.playerId);
-          if (!playerObj) return;
-
-          const player = Player.fromJSON(playerObj);
+          // 4. Process Pending Contract Offers
+          const processedOffers = [];
+          let updatedPlayersForOffers = [...developedPlayers];
+          const newInboxMessages = [];
+    
+          if (activeSave.pendingOffers && activeSave.pendingOffers.length > 0) {
+            activeSave.pendingOffers.forEach(offer => {
+              // FIND PLAYER BY IDENTITY (ID, Name, or Gamertag)
+              const playerObj = updatedPlayersForOffers.find(p => 
+                p.id === offer.playerId || 
+                (p.name && p.name === offer.playerName) || 
+                (p.gamertag && p.gamertag === offer.playerName)
+              );
+              
+              if (!playerObj) return;
+    
+              const player = Player.fromJSON(playerObj);
           const marketValue = player.marketValue || 50000;
           const offeredSalary = offer.offeredSalary;
           
@@ -297,10 +477,53 @@ const SimWeekButton = ({ activeSave, setActiveSave }) => {
             // Update player team and salary
             updatedPlayersForOffers = updatedPlayersForOffers.map(p => {
               if (p.id === player.id) {
+                // If they were on another team, they are no longer on that team
+                // This ensures they don't appear for their old team in simulations
+                console.log(`Player ${p.gamertag} moving from ${p.teamId || 'Free Agent'} to ${activeSave.teamId}`);
+                
+                // Track original team for replacement logic
+                const originalTeamId = p.teamId;
+
+                // CRITICAL: We update the player object to the new team.
                 const updatedP = Player.fromJSON(p);
                 updatedP.teamId = String(activeSave.teamId);
                 updatedP.team = activeSave.team;
                 updatedP.marketValue = offeredSalary; // New contract salary
+                
+                // If the player was poached from an AI team, handle replacement
+                if (originalTeamId && String(originalTeamId) !== String(activeSave.teamId)) {
+                  const originalTeam = teams.find(t => String(t.id) === String(originalTeamId));
+                  if (originalTeam) {
+                    const replacement = hireFreeAgentForTeam(originalTeam.id, originalTeam.name, originalTeam.region, updatedPlayersForOffers);
+                    if (replacement) {
+                      newInboxMessages.push({
+                        id: Date.now() + Math.random().toString(36).substr(2, 9),
+                        sender: "League News",
+                        subject: "Roster Change: Player Poached",
+                        body: `ALERT: ${originalTeam.name} has lost ${p.name || p.gamertag} to your team, ${activeSave.team}.\n\nTo fill the vacancy, ${originalTeam.name} has signed free agent ${replacement.name || replacement.gamertag} to their active roster.`,
+                        date: new Date().toLocaleDateString(),
+                        read: false
+                      });
+                    }
+                  }
+                }
+
+                // IMPORTANT: We also need to remove any other occurrences of this player
+                // from other teams to prevent them from appearing in multiple rosters.
+                updatedPlayersForOffers = updatedPlayersForOffers.map(otherP => {
+                  const isMatch = otherP && otherP.id !== p.id && (
+                    (otherP.gamertag && otherP.gamertag === p.gamertag) || 
+                    (otherP.name && otherP.name === p.name)
+                  );
+                  if (isMatch) {
+                    // Mark as free agent or just remove them? 
+                    // Better to mark as free agent so we don't break arrays, 
+                    // or just let the next filter handle it.
+                    return { ...otherP, teamId: null, team: null };
+                  }
+                  return otherP;
+                });
+
                 return {
                     ...p,
                     teamId: updatedP.teamId,
@@ -308,8 +531,25 @@ const SimWeekButton = ({ activeSave, setActiveSave }) => {
                     marketValue: updatedP.marketValue
                 };
               }
+              
+              // REDUNDANCY CHECK: Ensure this player ID doesn't exist on any other team
+              // We also check by name/gamertag for real players
+              const isMatch = p && (p.id === offer.playerId || 
+                                   (p.gamertag && p.gamertag === player.gamertag) || 
+                                   (p.name && p.name === player.name));
+
+              if (isMatch) {
+                  const updatedP = Player.fromJSON(p);
+                  updatedP.teamId = String(activeSave.teamId);
+                  updatedP.team = activeSave.team;
+                  return updatedP;
+              }
               return p;
             });
+
+            // CRITICAL: Ensure no other player has the same ID on another team (redundancy check)
+            // This is primarily to handle the case where the simulation might be sourcing from a different data structure
+            // though updatedPlayersForOffers should be the source of truth.
           } else {
             const declineReasons = [
                 `The salary offer of $${offeredSalary.toLocaleString()} doesn't quite match my expectations given my current market value.`,
@@ -342,10 +582,13 @@ const SimWeekButton = ({ activeSave, setActiveSave }) => {
           type: 'match',
           week: activeSave.week,
           text: `${m.winner} def. ${m.loser} (${m.score})`,
+          logs: m.logs, // Ensure logs are passed to history
           details: m
         }))],
         kickoffState: getKickoffState(activeSave.id),
-        regularSeasonMatches: [...(aiUpdatedSave.regularSeasonMatches || []), ...simulatedMatches]
+        regularSeasonMatches: [...(aiUpdatedSave.regularSeasonMatches || []), ...simulatedMatches],
+        qualifiedTeams: allQualifiedTeams,
+        kickoffResults: kickoffResults
       };
 
       // 6. Periodic Updates (Top 5 Contenders)
@@ -372,6 +615,17 @@ const SimWeekButton = ({ activeSave, setActiveSave }) => {
         });
       } else {
         messageContent += "It was a relatively quiet week in the league with no major roster moves.";
+      }
+
+      if (activeSave.week === 1) {
+        messageContent += "The VCT Kickoff tournaments have concluded across all regions. Here are the teams that have qualified for Masters Bangkok:\n\n";
+        regions.forEach(region => {
+            const qualified = allQualifiedTeams[region];
+            if (qualified && qualified.length > 0) {
+                messageContent += `${region.toUpperCase()}: ${qualified.join(' & ')}\n`;
+            }
+        });
+        messageContent += "\n";
       }
 
       const reportMessage = {

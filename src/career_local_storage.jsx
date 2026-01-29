@@ -7,10 +7,65 @@ const API_BASE_URL = 'http://localhost:5000/api';
 
 export function saveKickoffState(st, saveId = null) {
   const key = saveId ? `valorantKickoffState_${saveId}` : "valorantKickoffState";
+  
+  // OPTIMIZATION: Before saving, clean up any old kickoff states from other saves to free up space
+  if (saveId) {
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith('valorantKickoffState_') && k !== key) {
+          // If it's a different save's kickoff state, we can probably remove it or at least log it
+          // For now, let's be safe and only remove it if we hit a quota error later
+        }
+      }
+    } catch (e) {}
+  }
+
   try {
     localStorage.setItem(key, JSON.stringify(st));
   } catch (e) {
-    console.warn("saveKickoffState: localStorage quota exceeded", e);
+    console.warn("saveKickoffState: localStorage quota exceeded, attempting to slim state...", e);
+    
+    // If quota exceeded, try to slim down the state by removing mapResults from ALL series
+    if (st && st.series) {
+      const seriesIds = Object.keys(st.series);
+      seriesIds.forEach((id) => {
+        // Keep only essential result info, remove stats/details if we're desperate
+        if (st.series[id].mapResults) {
+          delete st.series[id].mapResults;
+        }
+        if (st.series[id].playerStats) {
+          // delete st.series[id].playerStats; // Keep playerStats if possible, but mapResults is usually the big one
+        }
+      });
+      
+      try {
+        localStorage.setItem(key, JSON.stringify(st));
+        console.log("Successfully saved slimmed kickoff state.");
+      } catch (e2) {
+        console.error("Critical: Could not save even slimmed kickoff state. Clearing old data to free up space.", e2);
+        
+        // Desperation move: clear ALL matchResult_ keys AND other saves' kickoff states
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (k) {
+            if (k.startsWith('matchResult_') || k.startsWith('match_')) {
+              localStorage.removeItem(k);
+            } else if (k.startsWith('valorantKickoffState_') && k !== key) {
+              localStorage.removeItem(k);
+            }
+          }
+        }
+        
+        // Final attempt
+        try {
+          localStorage.setItem(key, JSON.stringify(st));
+          console.log("Successfully saved after clearing other data.");
+        } catch (e3) {
+          console.error("Absolute failure: localStorage is completely full and cannot be cleared enough.", e3);
+        }
+      }
+    }
   }
 }
 
@@ -58,14 +113,47 @@ export function getSafeTeamByName(name) {
 
     const activeSave = loadCareer();
     if (activeSave && activeSave.players) {
+        // Find which players are ON the user's team by identity (ID, Name, Gamertag)
+        const userTeamId = activeSave.teamId ? String(activeSave.teamId) : null;
+        const userTeamName = activeSave.team ? activeSave.team : null;
+        
+        const userPlayersByIdentity = activeSave.players.filter(p => {
+            const pTeamId = p.teamId ? String(p.teamId) : null;
+            const pTeamName = p.team ? p.team : null;
+            return (userTeamId && pTeamId === userTeamId) || (userTeamName && pTeamName === userTeamName);
+        });
+
         const teamPlayers = activeSave.players.filter(p => {
             const pTeamNorm = p.team ? normalize(p.team) : null;
-            const pTeamIdNorm = p.teamId ? normalize(p.teamId) : null;
-            const matchesName = (pTeamNorm && pTeamNorm === normalizedTarget);
-            const matchesIdDirect = (pTeamIdNorm && pTeamIdNorm === normalizedTarget);
-            const matchesIdRef = targetTeam && p.teamId && String(p.teamId) === String(targetTeam.id);
-            const matchesNameRef = targetTeam && p.team && normalize(p.team) === normalize(targetTeam.name);
-            return matchesName || matchesIdDirect || matchesIdRef || matchesNameRef;
+            const pTeamIdNorm = p.teamId ? String(p.teamId) : null;
+            
+            let isTargetTeam = false;
+
+            // Priority 1: Check by Team ID if available
+            if (targetTeam && targetTeam.id && pTeamIdNorm) {
+                isTargetTeam = pTeamIdNorm === String(targetTeam.id);
+            } else if (pTeamIdNorm && pTeamIdNorm === normalizedTarget) {
+                // Priority 2: Check by Team ID directly if normalizedTarget is an ID
+                isTargetTeam = true;
+            } else {
+                // Priority 3: Fallback to Team Name
+                const matchesName = (pTeamNorm && pTeamNorm === normalizedTarget);
+                const matchesNameRef = targetTeam && p.team && normalize(p.team) === normalize(targetTeam.name);
+                isTargetTeam = matchesName || matchesNameRef;
+            }
+
+            if (!isTargetTeam) return false;
+
+            // CRITICAL: If this is NOT the user's team being requested,
+            // we must EXCLUDE any player that is currently on the user's team by identity.
+            // This prevents "duplicates" like Boostio appearing on 100 Thieves after being hired.
+            const isActuallyOnUserTeam = (userTeamId && normalizedTarget !== normalize(userTeamName)) && userPlayersByIdentity.some(up => 
+                up.id === p.id || 
+                (up.gamertag && up.gamertag === p.gamertag) || 
+                (up.name && up.name === p.name)
+            );
+
+            return !isActuallyOnUserTeam;
         });
 
         if (teamPlayers.length > 0) {
@@ -153,7 +241,7 @@ export function createNewSave(managerName, teamName, region) {
             series: {},
         }
     };
-    saveKickoffState(newSave.id, newSave.kickoffState);
+    saveKickoffState(newSave.kickoffState, newSave.id);
     return newSave;
 }
 
@@ -200,7 +288,7 @@ export async function startCareer(managerName, teamName, region) {
             // Keep only essential players (user team + some free agents)
             const userTeamPlayers = saveToStore.players.filter(p => String(p.teamId) === String(saveToStore.teamId));
             const otherPlayers = saveToStore.players.filter(p => String(p.teamId) !== String(saveToStore.teamId));
-            saveToStore.players = [...userTeamPlayers, ...otherPlayers.slice(0, 100)];
+            saveToStore.players = [...userTeamPlayers, ...otherPlayers.slice(0, 500)];
         }
 
         localStorage.setItem(`save_${save.id}`, JSON.stringify(saveToStore));
@@ -493,27 +581,62 @@ export function finalizeLoad(foundSave, actualId) {
     try {
         const saveToStore = { ...foundSave };
         
-        // Optimization: For localStorage, store a slimmed-down version if it's too big
-        if (saveToStore.players && saveToStore.players.length > 500) {
-            console.log("finalizeLoad: Slimming down localStorage backup to save space.");
+        // CRITICAL STORAGE OPTIMIZATION: Remove large redundant objects for localStorage backup
+        // kickoffState is already stored in its own key 'valorantKickoffState_${actualId}'
+        delete saveToStore.kickoffState;
+        
+        // More aggressive slimming for localStorage
+        if (saveToStore.players && saveToStore.players.length > 300) {
+            console.log("finalizeLoad: Aggressively slimming players for localStorage backup.");
             const userTeamId = String(foundSave.teamId);
             const userTeamPlayers = saveToStore.players.filter(p => String(p.teamId) === userTeamId);
             const otherPlayers = saveToStore.players.filter(p => String(p.teamId) !== userTeamId);
-            saveToStore.players = [...userTeamPlayers, ...otherPlayers.slice(0, 100)];
+            saveToStore.players = [...userTeamPlayers, ...otherPlayers.slice(0, 300)];
+        }
+        
+        if (saveToStore.inbox && saveToStore.inbox.length > 20) {
+            console.log("finalizeLoad: Slimming inbox for localStorage backup.");
+            saveToStore.inbox = saveToStore.inbox.slice(0, 20);
+        }
+        
+        if (saveToStore.history && saveToStore.history.length > 50) {
+            console.log("finalizeLoad: Slimming history for localStorage backup.");
+            saveToStore.history = saveToStore.history.slice(-50);
+        }
+        
+        if (saveToStore.regularSeasonMatches && saveToStore.regularSeasonMatches.length > 50) {
+            console.log("finalizeLoad: Slimming regularSeasonMatches for localStorage backup.");
+            saveToStore.regularSeasonMatches = saveToStore.regularSeasonMatches.slice(-50);
         }
 
         localStorage.setItem(`save_${actualId}`, JSON.stringify(saveToStore));
     } catch (lsError) {
         console.warn("finalizeLoad: localStorage quota exceeded while syncing. Data remains in memory and API.", lsError);
-        // Try to free space by removing other saves if this is the active one
+        // Try even more desperate slimming if it still fails
         try {
-            const keys = Object.keys(localStorage);
-            const otherSaveKeys = keys.filter(k => k.startsWith('save_') && k !== `save_${actualId}`);
-            if (otherSaveKeys.length > 0) {
-                otherSaveKeys.forEach(k => localStorage.removeItem(k));
-                localStorage.setItem(`save_${actualId}`, JSON.stringify(foundSave));
-            }
-        } catch (e) {}
+            const desperateSave = { ...foundSave };
+            delete desperateSave.kickoffState;
+            delete desperateSave.history;
+            delete desperateSave.regularSeasonMatches;
+            desperateSave.inbox = desperateSave.inbox ? desperateSave.inbox.slice(0, 5) : [];
+            desperateSave.players = desperateSave.players ? desperateSave.players.filter(p => String(p.teamId) === String(foundSave.teamId)) : [];
+            
+            localStorage.setItem(`save_${actualId}`, JSON.stringify(desperateSave));
+            console.log("finalizeLoad: Desperate slimming successful.");
+        } catch (e) {
+            // If even desperate slimming fails, try clearing other saves
+            try {
+                const keys = Object.keys(localStorage);
+                const otherSaveKeys = keys.filter(k => (k.startsWith('save_') || k.startsWith('valorantKickoffState_')) && !k.includes(String(actualId)));
+                if (otherSaveKeys.length > 0) {
+                    otherSaveKeys.forEach(k => localStorage.removeItem(k));
+                    // Try the initial saveToStore again
+                    const retrySave = { ...foundSave };
+                    delete retrySave.kickoffState;
+                    localStorage.setItem(`save_${actualId}`, JSON.stringify(retrySave));
+                }
+            } catch (e2) {}
+        }
     }
     
     console.log(`finalizeLoad: Completed. Final player count: ${foundSave.players.length}`);
@@ -610,30 +733,62 @@ export async function saveCareer(updatedSave) {
     try {
         const saveToStore = { ...updatedSave };
         
-        // Optimization: For localStorage, store a slimmed-down version if it's too big
-        if (saveToStore.players && saveToStore.players.length > 500) {
-            console.log("saveCareer: Slimming down localStorage backup to save space.");
-            const userTeamPlayers = saveToStore.players.filter(p => String(p.teamId) === String(saveToStore.teamId));
-            const otherPlayers = saveToStore.players.filter(p => String(p.teamId) !== String(saveToStore.teamId));
-            saveToStore.players = [...userTeamPlayers, ...otherPlayers.slice(0, 100)];
+        // CRITICAL STORAGE OPTIMIZATION: Remove large redundant objects for localStorage backup
+        // kickoffState is already stored in its own key 'valorantKickoffState_${updatedSave.id}'
+        delete saveToStore.kickoffState;
+        
+        // More aggressive slimming for localStorage
+        if (saveToStore.players && saveToStore.players.length > 300) {
+            console.log("saveCareer: Aggressively slimming players for localStorage backup.");
+            const userTeamId = String(updatedSave.teamId);
+            const userTeamPlayers = saveToStore.players.filter(p => String(p.teamId) === userTeamId);
+            const otherPlayers = saveToStore.players.filter(p => String(p.teamId) !== userTeamId);
+            saveToStore.players = [...userTeamPlayers, ...otherPlayers.slice(0, 300)];
+        }
+        
+        if (saveToStore.inbox && saveToStore.inbox.length > 20) {
+            saveToStore.inbox = saveToStore.inbox.slice(0, 20);
+        }
+        
+        if (saveToStore.history && saveToStore.history.length > 50) {
+            saveToStore.history = saveToStore.history.slice(-50);
+        }
+        
+        if (saveToStore.regularSeasonMatches && saveToStore.regularSeasonMatches.length > 50) {
+            saveToStore.regularSeasonMatches = saveToStore.regularSeasonMatches.slice(-50);
         }
 
         localStorage.setItem(`save_${updatedSave.id}`, JSON.stringify(saveToStore));
         localStorage.setItem('activeSaveId', String(updatedSave.id));
     } catch (lsError) {
         console.warn("saveCareer: localStorage quota exceeded. Relying on API for full data.", lsError);
-        // Clean up old saves to make room
+        // Try even more desperate slimming if it still fails
         try {
-            const keys = Object.keys(localStorage);
-            const saveKeys = keys.filter(k => k.startsWith('save_') && k !== `save_${updatedSave.id}`);
-            if (saveKeys.length > 0) {
-                console.log(`saveCareer: Removing ${saveKeys.length} old saves from localStorage to free space.`);
-                saveKeys.forEach(k => localStorage.removeItem(k));
-                // Try saving again
-                localStorage.setItem(`save_${updatedSave.id}`, JSON.stringify(updatedSave));
-            }
+            const desperateSave = { ...updatedSave };
+            delete desperateSave.kickoffState;
+            delete desperateSave.history;
+            delete desperateSave.regularSeasonMatches;
+            desperateSave.inbox = desperateSave.inbox ? desperateSave.inbox.slice(0, 5) : [];
+            desperateSave.players = desperateSave.players ? desperateSave.players.filter(p => String(p.teamId) === String(updatedSave.teamId)) : [];
+            
+            localStorage.setItem(`save_${updatedSave.id}`, JSON.stringify(desperateSave));
+            console.log("saveCareer: Desperate slimming successful.");
         } catch (e) {
-            console.error("saveCareer: Failed to free space in localStorage.", e);
+            // Clean up old saves to make room
+            try {
+                const keys = Object.keys(localStorage);
+                const saveKeys = keys.filter(k => (k.startsWith('save_') || k.startsWith('valorantKickoffState_')) && !k.includes(String(updatedSave.id)));
+                if (saveKeys.length > 0) {
+                    console.log(`saveCareer: Removing ${saveKeys.length} old save-related keys from localStorage to free space.`);
+                    saveKeys.forEach(k => localStorage.removeItem(k));
+                    // Try saving again with initial slimmed version
+                    const retrySave = { ...updatedSave };
+                    delete retrySave.kickoffState;
+                    localStorage.setItem(`save_${updatedSave.id}`, JSON.stringify(retrySave));
+                }
+            } catch (e2) {
+                console.error("saveCareer: Failed to free space in localStorage.", e2);
+            }
         }
     }
 

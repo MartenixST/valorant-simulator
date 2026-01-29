@@ -25,44 +25,50 @@ export function handleAiRosterChanges(activeSave) {
     });
 
     aiTeams.forEach(team => {
-        // 5% chance for an AI team to make a move this week
-        if (Math.random() > 0.05) return;
-
         const teamId = String(team.id);
         const teamName = team.name;
-        const teamRoster = updatedPlayers.filter(p => {
-            const matchesId = p.teamId && String(p.teamId) === teamId;
-            const matchesName = p.team && p.team === teamName;
-            return matchesId || matchesName;
-        });
         
-        // Ensure they have at least a full roster before trying to swap
-        if (teamRoster.length < 5) {
-            // Team is understaffed, hire a free agent
+        // Helper to get roster
+        const getRoster = () => updatedPlayers.filter(p => {
+            const pTeamId = p.teamId ? String(p.teamId) : null;
+            if (teamId && pTeamId) return pTeamId === teamId;
+            return p.team && p.team === teamName;
+        });
+
+        let teamRoster = getRoster();
+        
+        // MANDATORY: Always fill understaffed rosters immediately
+        while (teamRoster.length < 5) {
             const hiredPlayer = hireFreeAgentForTeam(teamId, teamName, team.region, updatedPlayers);
             if (hiredPlayer) {
-                changes.push(`${team.name} hired ${hiredPlayer.name} to fill their roster.`);
+                changes.push(`${team.name} signed ${hiredPlayer.name || hiredPlayer.gamertag} to fill a roster vacancy.`);
+                teamRoster = getRoster(); // Refresh roster count
+            } else {
+                break; // Should not happen as hireFreeAgentForTeam generates if none found
             }
-        } else {
-            // Team is full, maybe release worst and hire new?
-            // Sort by overall to find the worst player
-            teamRoster.sort((a, b) => (a.overall || 0) - (b.overall || 0));
-            const worstPlayer = teamRoster[0];
+        }
 
-            // Only release if they are significantly worse than average or just random churn
-            if (worstPlayer.overall < 60 || Math.random() < 0.2) {
-                // Release worst player
-                const playerIndex = updatedPlayers.findIndex(p => p.id === worstPlayer.id);
-                if (playerIndex !== -1) {
-                    updatedPlayers[playerIndex] = { ...updatedPlayers[playerIndex], teamId: null, team: null };
-                    
-                    // Hire a replacement
-                    const hiredPlayer = hireFreeAgentForTeam(teamId, teamName, team.region, updatedPlayers);
-                    if (hiredPlayer) {
-                        changes.push(`${team.name} released ${worstPlayer.name} and hired ${hiredPlayer.name}.`);
-                    } else {
-                        changes.push(`${team.name} released ${worstPlayer.name}.`);
-                    }
+        // 5% chance for an AI team to make a strategic move this week
+        if (Math.random() > 0.05) return;
+
+        // Team is full, maybe release worst and hire new?
+        // Sort by overall to find the worst player
+        teamRoster.sort((a, b) => (a.overall || 0) - (b.overall || 0));
+        const worstPlayer = teamRoster[0];
+
+        // Only release if they are significantly worse than average or just random churn
+        if (worstPlayer.overall < 60 || Math.random() < 0.2) {
+            // Release worst player
+            const playerIndex = updatedPlayers.findIndex(p => p.id === worstPlayer.id);
+            if (playerIndex !== -1) {
+                updatedPlayers[playerIndex] = { ...updatedPlayers[playerIndex], teamId: null, team: null };
+                
+                // Hire a replacement
+                const hiredPlayer = hireFreeAgentForTeam(teamId, teamName, team.region, updatedPlayers);
+                if (hiredPlayer) {
+                    changes.push(`${team.name} released ${worstPlayer.name || worstPlayer.gamertag} and hired ${hiredPlayer.name || hiredPlayer.gamertag}.`);
+                } else {
+                    changes.push(`${team.name} released ${worstPlayer.name || worstPlayer.gamertag}.`);
                 }
             }
         }
@@ -71,7 +77,7 @@ export function handleAiRosterChanges(activeSave) {
     return { updatedSave: { ...activeSave, players: updatedPlayers }, changes };
 }
 
-function hireFreeAgentForTeam(teamId, teamName, region, players) {
+export function hireFreeAgentForTeam(teamId, teamName, region, players) {
     // Find best free agent in the region
     const freeAgents = players.filter(p => p.teamId === null || p.teamId === 'null' || !p.teamId);
     

@@ -217,6 +217,15 @@ function showMatchStats(matchId) {
 
     const statsContainer = document.createElement('div');
     statsContainer.className = 'stats-container';
+
+    const logsContainer = document.createElement('div');
+    logsContainer.className = 'match-logs-stats';
+    logsContainer.style.marginTop = '20px';
+    logsContainer.style.padding = '15px';
+    logsContainer.style.background = 'rgba(0,0,0,0.3)';
+    logsContainer.style.borderRadius = '8px';
+    logsContainer.style.maxHeight = '300px';
+    logsContainer.style.overflowY = 'auto';
     
     const renderTeamStats = (teamName, teamId, players, rounds = 24) => {
         const teamHeader = document.createElement('div');
@@ -268,9 +277,11 @@ function showMatchStats(matchId) {
 
     const updateStatsDisplay = (tab) => {
         statsContainer.innerHTML = '';
+        logsContainer.innerHTML = '';
         let statsToShow = matchData.playerStats;
         let rounds = 0;
         let mapScore = null;
+        let logsToShow = [];
         
         if (tab === 'all') {
             // For all maps, use the aggregated playerStats already in matchData
@@ -281,6 +292,7 @@ function showMatchStats(matchId) {
                 matchData.mapResults.forEach(m => {
                     const scores = m.score.split('-');
                     rounds += parseInt(scores[0]) + parseInt(scores[1]);
+                    if (m.events) logsToShow = logsToShow.concat(m.events);
                 });
             } else {
                 // Fallback for manual matches where mapResults might be empty
@@ -294,6 +306,7 @@ function showMatchStats(matchId) {
                 mapScore = mapData.score;
                 const scores = mapData.score.split('-');
                 rounds = parseInt(scores[0]) + parseInt(scores[1]);
+                logsToShow = mapData.events || [];
             }
         }
 
@@ -322,6 +335,45 @@ function showMatchStats(matchId) {
         // Fallback if filtering failed
         if (team1Players.length === 0 && team2Players.length === 0 && allPlayers.length > 0) {
             renderTeamStats("Players", null, allPlayers, rounds);
+        }
+
+        // Render logs if available
+        if (logsToShow && logsToShow.length > 0) {
+            const logsHeader = document.createElement('h4');
+            logsHeader.textContent = 'Match Analysis';
+            logsHeader.style.color = '#ff4655';
+            logsHeader.style.marginTop = '20px';
+            logsHeader.style.marginBottom = '10px';
+            logsHeader.style.fontFamily = 'VALORANT, sans-serif';
+            logsContainer.appendChild(logsHeader);
+
+            logsToShow.forEach(log => {
+                const logEl = document.createElement('div');
+                logEl.className = 'log-event-item';
+                logEl.style.padding = '4px 0';
+                logEl.style.fontSize = '13px';
+                logEl.style.borderBottom = '1px solid rgba(255,255,255,0.05)';
+                
+                // Highlight strategy events
+                const isStrategy = log.includes('pushing aggressively') || 
+                                  log.includes('fast site hit') || 
+                                  log.includes('bunkered down') || 
+                                  log.includes('slow and methodical') ||
+                                  log.includes('high-risk picks') ||
+                                  log.includes('map info') ||
+                                  log.includes('mid-round adjustments');
+                
+                if (isStrategy) {
+                    logEl.style.color = '#00f6ff';
+                    logEl.style.fontWeight = 'bold';
+                } else {
+                    logEl.style.color = '#ece8e1';
+                }
+
+                logEl.textContent = `• ${log}`;
+                logsContainer.appendChild(logEl);
+            });
+            statsContainer.appendChild(logsContainer);
         }
     };
 
@@ -620,16 +672,16 @@ export function renderKickoff(st) {
       const byeTeams = [];
       for (let i = 0; i < 4; i++) {
           let team = getRandomTeam(initialUsedTeams, "Americas"); // Get a unique team
-          byeTeams.push(team);
+          byeTeams.push(team.name);
           initialUsedTeams.push(team);
       }
 
       // Initialize play-in matches (Round 1 for 8 teams)
       st.playInRound1 = [
-        { id: 'K-P1-M1', team1: (() => { let team = getRandomTeam(initialUsedTeams, "Americas"); initialUsedTeams.push(team); return team; })(), team2: (() => { let team = getRandomTeam(initialUsedTeams, "Americas"); initialUsedTeams.push(team); return team; })(), winner: null, bestOf: 3, isGrandFinal: false },
-        { id: 'K-P1-M2', team1: (() => { let team = getRandomTeam(initialUsedTeams, "Americas"); initialUsedTeams.push(team); return team; })(), team2: (() => { let team = getRandomTeam(initialUsedTeams, "Americas"); initialUsedTeams.push(team); return team; })(), winner: null, bestOf: 3, isGrandFinal: false },
-        { id: 'K-P1-M3', team1: (() => { let team = getRandomTeam(initialUsedTeams, "Americas"); initialUsedTeams.push(team); return team; })(), team2: (() => { let team = getRandomTeam(initialUsedTeams, "Americas"); initialUsedTeams.push(team); return team; })(), winner: null, bestOf: 3, isGrandFinal: false },
-        { id: 'K-P1-M4', team1: (() => { let team = getRandomTeam(initialUsedTeams, "Americas"); initialUsedTeams.push(team); return team; })(), team2: (() => { let team = getRandomTeam(initialUsedTeams, "Americas"); initialUsedTeams.push(team); return team; })(), winner: null, bestOf: 3, isGrandFinal: false },
+        { id: 'K-P1-M1', team1: (() => { let team = getRandomTeam(initialUsedTeams, "Americas"); initialUsedTeams.push(team); return team.name; })(), team2: (() => { let team = getRandomTeam(initialUsedTeams, "Americas"); initialUsedTeams.push(team); return team.name; })(), winner: null, bestOf: 3, isGrandFinal: false },
+        { id: 'K-P1-M2', team1: (() => { let team = getRandomTeam(initialUsedTeams, "Americas"); initialUsedTeams.push(team); return team.name; })(), team2: (() => { let team = getRandomTeam(initialUsedTeams, "Americas"); initialUsedTeams.push(team); return team.name; })(), winner: null, bestOf: 3, isGrandFinal: false },
+        { id: 'K-P1-M3', team1: (() => { let team = getRandomTeam(initialUsedTeams, "Americas"); initialUsedTeams.push(team); return team.name; })(), team2: (() => { let team = getRandomTeam(initialUsedTeams, "Americas"); initialUsedTeams.push(team); return team.name; })(), winner: null, bestOf: 3, isGrandFinal: false },
+        { id: 'K-P1-M4', team1: (() => { let team = getRandomTeam(initialUsedTeams, "Americas"); initialUsedTeams.push(team); return team.name; })(), team2: (() => { let team = getRandomTeam(initialUsedTeams, "Americas"); initialUsedTeams.push(team); return team.name; })(), winner: null, bestOf: 3, isGrandFinal: false },
       ];
 
       // Initialize upper bracket Round 1 (where bye teams join)
@@ -832,10 +884,13 @@ export function renderKickoff(st) {
 
 
 function kickoffWatchSeries(id, team1, team2, bestOf, isGrandFinal) {
-  console.log(`Watching series: ${team1} vs ${team2}`);
+  const t1Name = typeof team1 === 'object' ? team1.name : team1;
+  const t2Name = typeof team2 === 'object' ? team2.name : team2;
   
-  const t1Data = getSafeTeamByName(team1);
-  const t2Data = getSafeTeamByName(team2);
+  console.log(`Watching series: ${t1Name} vs ${t2Name}`);
+  
+  const t1Data = getSafeTeamByName(t1Name);
+  const t2Data = getSafeTeamByName(t2Name);
 
   if (!t1Data || !t2Data) {
     console.error("Could not find team data for simulation");
@@ -874,6 +929,18 @@ function kickoffWatchSeries(id, team1, team2, bestOf, isGrandFinal) {
   initializeTotalStats(team1Obj.players, team1Obj.id, team1Obj.name);
   initializeTotalStats(team2Obj.players, team2Obj.id, team2Obj.name);
 
+  // Load player team strategy
+  const activeSave = loadCareer();
+  const playerTeamStrategy = activeSave?.strategies || { playstyle: 'balanced', focus: 'standard', eco: 'standard' };
+  const playerTeamName = activeSave?.team;
+  
+  const strategies = {};
+  if (playerTeamName) {
+    // Apply strategy to the player's team if it's in this match
+    if (team1 === playerTeamName) strategies[team1Obj.id] = playerTeamStrategy;
+    if (team2 === playerTeamName) strategies[team2Obj.id] = playerTeamStrategy;
+  }
+
   // Series simulation
   const mapResults = [];
   let t1MapWins = 0;
@@ -898,7 +965,7 @@ function kickoffWatchSeries(id, team1, team2, bestOf, isGrandFinal) {
     team1Obj.side = 'attack';
     team2Obj.side = 'defense';
 
-    const matchSim = new MatchSimulator(team1Obj, team2Obj);
+    const matchSim = new MatchSimulator(team1Obj, team2Obj, [], strategies);
     const result = matchSim.simulateMatch();
 
     const mapWinner = team1Obj.score > team2Obj.score ? 1 : 2;
@@ -935,6 +1002,7 @@ function kickoffWatchSeries(id, team1, team2, bestOf, isGrandFinal) {
       winner: mapWinner === 1 ? team1 : team2,
       score: `${team1Obj.score}-${team2Obj.score}`,
       playerStats: mapPlayerStats
+      // Removed events: result.logs to save localStorage space
     });
   }
 
@@ -942,9 +1010,13 @@ function kickoffWatchSeries(id, team1, team2, bestOf, isGrandFinal) {
   const loser = winner === team1 ? team2 : team1;
   const score = `${t1MapWins}-${t2MapWins}`;
 
+  // Championship Points and Masters Qualification
+  if (isGrandFinal || id === 'K-LBF' || id === 'K-LB4-M1') {
+    handleChampionshipPoints(id, winner, loser);
+  }
+
   const activeSaveId = localStorage.getItem('activeSaveId');
   const st = getKickoffState(activeSaveId);
-  const activeSave = loadCareer();
   if (activeSave && activeSave.team) {
     dataU.playerTeam = activeSave.team;
   }
@@ -969,6 +1041,44 @@ function kickoffWatchSeries(id, team1, team2, bestOf, isGrandFinal) {
   
   localStorage.setItem('rerenderKickoff', Date.now());
   renderKickoff(st); 
+}
+
+function handleChampionshipPoints(matchId, winner, loser) {
+    const activeSave = loadCareer();
+    if (!activeSave) return;
+    
+    if (!activeSave.championshipPoints) {
+        activeSave.championshipPoints = {};
+    }
+
+    // Points logic:
+    // 1st (GF Winner): 3 points
+    // 2nd (GF Loser): 2 points
+    // 3rd (LBF Loser): 1 point
+    // 4th (LB4 Loser): 1 point
+
+    if (matchId === 'K-GF') {
+        activeSave.championshipPoints[winner] = (activeSave.championshipPoints[winner] || 0) + 3;
+        activeSave.championshipPoints[loser] = (activeSave.championshipPoints[loser] || 0) + 2;
+        
+        // Qualification for Masters Bangkok (Top 2)
+         if (!activeSave.mastersQualifications) activeSave.mastersQualifications = [];
+         if (!activeSave.mastersQualifications.includes(winner)) activeSave.mastersQualifications.push(winner);
+         if (!activeSave.mastersQualifications.includes(loser)) activeSave.mastersQualifications.push(loser);
+         
+         console.log(`Qualified for Masters Bangkok: ${winner} and ${loser}`);
+     } else if (matchId === 'K-LBF') {
+        activeSave.championshipPoints[loser] = (activeSave.championshipPoints[loser] || 0) + 1;
+    } else if (matchId === 'K-LB4-M1') {
+        activeSave.championshipPoints[loser] = (activeSave.championshipPoints[loser] || 0) + 1;
+    }
+
+    const saves = JSON.parse(localStorage.getItem('careerSaves')) || [];
+    const idx = saves.findIndex(s => String(s.id) === String(activeSave.id));
+    if (idx !== -1) {
+        saves[idx] = activeSave;
+        localStorage.setItem('careerSaves', JSON.stringify(saves));
+    }
 }
 
 

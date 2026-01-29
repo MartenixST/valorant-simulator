@@ -10,6 +10,7 @@ const teamColors = {
   "Evil Geniuses": "#0F1F3A",
   "FURIA": "#FF0000",
   "KRÜ Esports": "#00C2FF",
+  "Leviatan": "#00428A",
   "Leviatán": "#00428A",
   "LOUD": "#00FF00",
   "MIBR": "#000000",
@@ -58,7 +59,7 @@ const teamColors = {
 const regions = {
   Americas: [
     "100 Thieves", "Cloud9", "Evil Geniuses", "FURIA", "KRÜ Esports", 
-    "Leviatán", "LOUD", "MIBR", "NRG", "Sentinels", "G2 Esports", "2GAME Esports"
+    "Leviatan", "LOUD", "MIBR", "NRG", "Sentinels", "G2 Esports", "2GAME Esports"
   ],
   EMEA: [
     "Team Liquid", "GiantX", "Natus Vincere", "Fnatic", "BBL Esports",
@@ -88,6 +89,9 @@ export function renderTeamRoster(providedSave = null) {
     teamRosterContainer.innerHTML = '<div class="roster-placeholder">Please start a career to manage your team.</div>';
     return;
   }
+
+  // Attach global functions and event listeners
+  setupEditFunctionality();
 
   const myTeam = activeSave.team;
   const myTeamId = activeSave.teamId ? String(activeSave.teamId) : null;
@@ -135,14 +139,14 @@ export function renderTeamRoster(providedSave = null) {
   
   // Helper to get overall rating reliably from plain objects
   const getOverall = (p) => {
-    if (p.overall) return Math.round(p.overall * 10) / 10;
+    if (p.overall) return Math.round(p.overall);
     if (p.rating) {
       const r = p.rating;
       const stats = [r.aim, r.movement, r.gameSense, r.clutch, r.aggression, r.utility, r.mental, r.teamwork, r.consistency];
       const sum = stats.reduce((acc, val) => acc + (val || 50), 0);
-      return Math.round((sum / 9) * 10) / 10;
+      return Math.round(sum / 9);
     }
-    return p.skill || 0;
+    return Math.round(p.skill || 0);
   };
 
   // Sort players by overall rating descending
@@ -163,7 +167,7 @@ export function renderTeamRoster(providedSave = null) {
 
   function renderPlayerCard(player, isSub = false) {
     const overall = getOverall(player);
-    const potential = Math.round((player.potential || player.rating?.potential || 0) * 10) / 10;
+    const potential = Math.round(player.potential || player.rating?.potential || 0);
     
     // Helper for rating colors
     const getRatingClass = (val) => {
@@ -211,45 +215,45 @@ export function renderTeamRoster(providedSave = null) {
           <div class="stats-column">
             <div class="stat-row">
               <span class="stat-name">Aim</span>
-              <span class="stat-val ${getRatingClass(player.rating?.aim || 0)}">${player.rating?.aim || 0}</span>
+              <span class="stat-val ${getRatingClass(Math.round(player.rating?.aim || 0))}">${Math.round(player.rating?.aim || 0)}</span>
             </div>
             <div class="stat-row">
               <span class="stat-name">Movement</span>
-              <span class="stat-val ${getRatingClass(player.rating?.movement || 0)}">${player.rating?.movement || 0}</span>
+              <span class="stat-val ${getRatingClass(Math.round(player.rating?.movement || 0))}">${Math.round(player.rating?.movement || 0)}</span>
             </div>
             <div class="stat-row">
               <span class="stat-name">Game Sense</span>
-              <span class="stat-val ${getRatingClass(player.rating?.gameSense || 0)}">${player.rating?.gameSense || 0}</span>
+              <span class="stat-val ${getRatingClass(Math.round(player.rating?.gameSense || 0))}">${Math.round(player.rating?.gameSense || 0)}</span>
             </div>
             <div class="stat-row">
               <span class="stat-name">Clutch</span>
-              <span class="stat-val ${getRatingClass(player.rating?.clutch || 0)}">${player.rating?.clutch || 0}</span>
+              <span class="stat-val ${getRatingClass(Math.round(player.rating?.clutch || 0))}">${Math.round(player.rating?.clutch || 0)}</span>
             </div>
             <div class="stat-row">
               <span class="stat-name">Aggression</span>
-              <span class="stat-val ${getRatingClass(player.rating?.aggression || 0)}">${player.rating?.aggression || 0}</span>
+              <span class="stat-val ${getRatingClass(Math.round(player.rating?.aggression || 0))}">${Math.round(player.rating?.aggression || 0)}</span>
             </div>
           </div>
           <div class="stats-column">
             <div class="stat-row">
               <span class="stat-name">Utility</span>
-              <span class="stat-val ${getRatingClass(player.rating?.utility || 0)}">${player.rating?.utility || 0}</span>
+              <span class="stat-val ${getRatingClass(Math.round(player.rating?.utility || 0))}">${Math.round(player.rating?.utility || 0)}</span>
             </div>
             <div class="stat-row">
               <span class="stat-name">Mental</span>
-              <span class="stat-val ${getRatingClass(player.rating?.mental || 0)}">${player.rating?.mental || 0}</span>
+              <span class="stat-val ${getRatingClass(Math.round(player.rating?.mental || 0))}">${Math.round(player.rating?.mental || 0)}</span>
             </div>
             <div class="stat-row">
               <span class="stat-name">Teamwork</span>
-              <span class="stat-val ${getRatingClass(player.rating?.teamwork || 0)}">${player.rating?.teamwork || 0}</span>
+              <span class="stat-val ${getRatingClass(Math.round(player.rating?.teamwork || 0))}">${Math.round(player.rating?.teamwork || 0)}</span>
             </div>
             <div class="stat-row">
               <span class="stat-name">Consistency</span>
-              <span class="stat-val ${getRatingClass(player.rating?.consistency || 0)}">${player.rating?.consistency || 0}</span>
+              <span class="stat-val ${getRatingClass(Math.round(player.rating?.consistency || 0))}">${Math.round(player.rating?.consistency || 0)}</span>
             </div>
             <div class="stat-row potential-row">
               <span class="stat-name">Potential</span>
-              <span class="stat-val ${getRatingClass(potential)}">${potential}</span>
+              <span class="stat-val ${getRatingClass(Math.round(potential))}">${Math.round(potential)}</span>
             </div>
           </div>
         </div>
@@ -308,23 +312,105 @@ export function renderTeamRoster(providedSave = null) {
         
         // Update skill for compatibility
         player.skill = Math.max(0, (player.skill || 0) - penalty);
-        
-        // Recalculate overall
-        const stats = [player.rating.aim, player.rating.movement, player.rating.gameSense, player.rating.clutch, player.rating.aggression, player.rating.utility, player.rating.mental, player.rating.teamwork, player.rating.consistency];
-        const sum = stats.reduce((acc, val) => acc + (val || 50), 0);
-        player.overall = Math.round((sum / 9) * 10) / 10;
       } else {
         player.skill = Math.max(0, (player.skill || 0) - penalty);
-        player.overall = player.skill;
+      }
+      
+      // CRITICAL: Update the player in the main save object
+      const playerIndex = activeSave.players.findIndex(p => p.id === playerId);
+      if (playerIndex !== -1) {
+          activeSave.players[playerIndex] = player;
       }
       
       saveCareer(activeSave);
       
       console.log(`Player ${player.name} role changed to ${newRole} with penalty.`);
-      renderTeamRoster(); // Re-render to show updated ratings
+      
+      // Use the setActiveSave if it's available in the parent context
+      // Since this is a global function, we might need to trigger a custom event
+      // or rely on the next renderTeamRoster call to use loadCareer()
+      renderTeamRoster(activeSave); 
+      
+      // Trigger a re-render of React components if needed
+      window.dispatchEvent(new CustomEvent('careerUpdate', { detail: activeSave }));
     } else {
-      // Re-render to reset the select value if cancelled
       renderTeamRoster();
+    }
+  };
+
+  // Function to handle swapping players
+  window.showSwapMenu = function(playerId) {
+    const activeSave = loadCareer();
+    if (!activeSave) return;
+
+    const playerToSwap = activeSave.players.find(p => p.id === playerId);
+    if (!playerToSwap) return;
+
+    // Filter potential swap targets: Free Agents or players from Other Teams
+    const otherPlayers = activeSave.players.filter(p => {
+        if (p.id === playerId) return false;
+        
+        const normalize = (n) => String(n || '').toLowerCase().trim();
+        const activeTeamId = activeSave.teamId ? String(activeSave.teamId) : null;
+        const activeTeamNameNorm = normalize(activeSave.team);
+        
+        const playerTeamId = p.teamId ? String(p.teamId) : null;
+        const playerTeamNameNorm = normalize(p.team);
+
+        const isMyTeam = (activeTeamId && playerTeamId && playerTeamId === activeTeamId) || 
+                         (activeTeamNameNorm && playerTeamNameNorm && playerTeamNameNorm === activeTeamNameNorm);
+        
+        return !isMyTeam;
+    });
+
+    if (otherPlayers.length === 0) {
+        alert("No other players available to swap with.");
+        return;
+    }
+
+    // Create a simple swap modal or use a prompt (using prompt for simplicity in this implementation)
+    let menuText = `Swap ${playerToSwap.name} with:\n\n`;
+    otherPlayers.slice(0, 15).forEach((p, idx) => {
+        const teamInfo = p.team ? `(${p.team})` : "(Free Agent)";
+        menuText += `${idx + 1}. ${p.name} - OVR ${getOverall(p)} ${teamInfo}\n`;
+    });
+    menuText += "\nEnter the number of the player to swap with:";
+
+    const choice = prompt(menuText);
+    if (choice === null) return;
+
+    const idx = parseInt(choice) - 1;
+    if (isNaN(idx) || idx < 0 || idx >= otherPlayers.slice(0, 15).length) {
+        alert("Invalid choice.");
+        return;
+    }
+
+    const targetPlayer = otherPlayers[idx];
+    
+    // Perform the swap
+    const playerToSwapIdx = activeSave.players.findIndex(p => p.id === playerToSwap.id);
+    const targetPlayerIdx = activeSave.players.findIndex(p => p.id === targetPlayer.id);
+
+    if (playerToSwapIdx !== -1 && targetPlayerIdx !== -1) {
+        // Swap team info
+        const tempTeamId = activeSave.players[playerToSwapIdx].teamId;
+        const tempTeamName = activeSave.players[playerToSwapIdx].team;
+        const tempStatus = activeSave.players[playerToSwapIdx].status;
+
+        activeSave.players[playerToSwapIdx].teamId = activeSave.players[targetPlayerIdx].teamId;
+        activeSave.players[playerToSwapIdx].team = activeSave.players[targetPlayerIdx].team;
+        activeSave.players[playerToSwapIdx].status = "free_agent";
+
+        activeSave.players[targetPlayerIdx].teamId = tempTeamId;
+        activeSave.players[targetPlayerIdx].team = tempTeamName;
+        activeSave.players[targetPlayerIdx].status = tempStatus;
+
+        saveCareer(activeSave);
+        console.log(`Swapped ${playerToSwap.name} with ${targetPlayer.name}`);
+        
+        renderTeamRoster(activeSave);
+        window.dispatchEvent(new CustomEvent('careerUpdate', { detail: activeSave }));
+        alert(`Successfully swapped ${playerToSwap.name} with ${targetPlayer.name}!`);
     }
   };
 
@@ -333,18 +419,23 @@ export function renderTeamRoster(providedSave = null) {
     if (confirm('Are you sure you want to release this player? They will become a free agent.')) {
       const activeSave = loadCareer();
       if (activeSave) {
-        const player = activeSave.players.find(p => p.id === playerId);
-        if (player) {
-          player.teamId = null;
-          player.team = null;
+        const playerIndex = activeSave.players.findIndex(p => p.id === playerId);
+        if (playerIndex !== -1) {
+          activeSave.players[playerIndex].teamId = null;
+          activeSave.players[playerIndex].team = null;
+          activeSave.players[playerIndex].status = "free_agent";
+          
           saveCareer(activeSave); // Save the updated career data
-          console.log(`Player ${player.name} released to free agency.`);
-          renderTeamRoster(); // Re-render to update the view
+          console.log(`Player released to free agency.`);
+          
+          renderTeamRoster(activeSave);
+          window.dispatchEvent(new CustomEvent('careerUpdate', { detail: activeSave }));
         }
       }
     }
   };
 
+function setupEditFunctionality() {
   // Function to handle editing player attributes
   window.editPlayerAttributes = function(playerId) {
     const activeSave = loadCareer();
@@ -360,7 +451,8 @@ export function renderTeamRoster(providedSave = null) {
       'edit-player-gamertag': playerToEdit.gamertag,
       'edit-player-role': playerToEdit.role,
       'edit-player-nationality': playerToEdit.nationality,
-      'edit-player-age': playerToEdit.age
+      'edit-player-age': playerToEdit.age,
+      'edit-player-salary': playerToEdit.marketValue || 50000
     };
 
     for (const [id, value] of Object.entries(elements)) {
@@ -403,12 +495,14 @@ export function renderTeamRoster(providedSave = null) {
   };
 
   // Event listener for rating range inputs to update their values
-  document.addEventListener('input', function (event) {
+  const handleInput = function (event) {
     if (event.target.id && event.target.id.startsWith('edit-player-')) {
       const valEl = document.getElementById(`${event.target.id}-value`);
       if (valEl) valEl.textContent = event.target.value;
     }
-  });
+  };
+  document.removeEventListener('input', handleInput);
+  document.addEventListener('input', handleInput);
 
   // Event listener for closing the modal
   const closeButton = document.querySelector('#player-edit-modal .close-button');
@@ -455,6 +549,9 @@ export function renderTeamRoster(providedSave = null) {
       const ageEl = document.getElementById('edit-player-age');
       if (ageEl) player.age = parseInt(ageEl.value);
       
+      const salaryEl = document.getElementById('edit-player-salary');
+      if (salaryEl) player.marketValue = parseInt(salaryEl.value);
+      
       // Update individual ratings
       if (!player.rating) {
         player.rating = {};
@@ -475,12 +572,9 @@ export function renderTeamRoster(providedSave = null) {
 
       // Update skill/potential for legacy compatibility
       player.skill = player.rating.aim; // Use aim as representative skill
-      player.potential = player.rating.potential;
       
-      // Re-calculate overall
-      const stats = [player.rating.aim, player.rating.movement, player.rating.gameSense, player.rating.clutch, player.rating.aggression, player.rating.utility, player.rating.mental, player.rating.teamwork, player.rating.consistency];
-      const sum = stats.reduce((acc, val) => acc + (val || 50), 0);
-      player.overall = Math.round((sum / 9) * 10) / 10;
+      // We don't set player.potential or player.overall directly because they are getters
+      // that proxy to player.rating. The ratings are already updated above.
 
       saveCareer(activeSave);
 
@@ -493,6 +587,7 @@ export function renderTeamRoster(providedSave = null) {
       }
     };
   }
+}
 
   // teamRosterContainer.appendChild(playerCardsContainer); // This seems to be old/commented out or redundant
 };

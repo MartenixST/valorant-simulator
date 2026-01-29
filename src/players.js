@@ -12,11 +12,31 @@ export const nationalities = {
 };
 
 export const playerNames = {
-    "North America": ["John", "Michael", "David", "James", "Robert", "William", "Christopher", "Joseph", "Daniel", "Matthew"],
-    "EMEA": ["Lukas", "Nikita", "Antoine", "Marco", "Sven", "Erik", "Aleksandr", "Mateo", "Can", "Filip"],
-    "Pacific": ["Jung", "Hiroshi", "Wei", "Somsak", "Budi", "Juan", "Liam", "Arjun", "Kenji", "Min-ho"],
-    "Americas": ["Gabriel", "Lucas", "Mateus", "Diego", "Felipe", "Thiago", "Joao", "Nicolas", "Enzo", "Gustavo"],
-    "China": ["Wei", "Hao", "Yi", "Bo", "Jun", "Zhe", "Chen", "Yang", "Fan", "Hui"]
+    "North America": {
+        first: ["John", "Michael", "David", "James", "Robert", "William", "Christopher", "Joseph", "Daniel", "Matthew", "Andrew", "Joshua", "Kevin", "Brian", "Justin"],
+        last: ["Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller", "Davis", "Rodriguez", "Martinez", "Hernandez", "Lopez", "Gonzalez", "Wilson", "Anderson"],
+        gamertags: ["Aero", "Blaze", "Cipher", "Dash", "Echo", "Frost", "Ghost", "Hades", "Icon", "Jolt", "Kryptic", "Lunar", "Moxie", "Nova", "Orbit", "Pulse", "Quantum", "Razor", "Specter", "Titan", "Vortex", "Wraith", "Xenon", "Yeti", "Zenith"]
+    },
+    "EMEA": {
+        first: ["Lukas", "Nikita", "Antoine", "Marco", "Sven", "Erik", "Aleksandr", "Mateo", "Can", "Filip", "Marius", "Piotr", "Lars", "Olav", "Zoran"],
+        last: ["Müller", "Schmidt", "Schneider", "Fischer", "Weber", "Meyer", "Wagner", "Becker", "Schulz", "Hoffmann", "Novak", "Ivanov", "Kuznetsov", "Popov", "Sokolov"],
+        gamertags: ["Alpha", "Beta", "Gamma", "Delta", "Epsilon", "Zeta", "Eta", "Theta", "Iota", "Kappa", "Lambda", "Mu", "Nu", "Xi", "Omicron", "Pi", "Rho", "Sigma", "Tau", "Upsilon", "Phi", "Chi", "Psi", "Omega"]
+    },
+    "Pacific": {
+        first: ["Jung", "Hiroshi", "Wei", "Somsak", "Budi", "Juan", "Liam", "Arjun", "Kenji", "Min-ho", "Satoshi", "Tae-hyun", "Anwar", "Ravi", "Yuki"],
+        last: ["Kim", "Lee", "Park", "Choi", "Jeong", "Sato", "Suzuki", "Takahashi", "Tanaka", "Watanabe", "Chen", "Wang", "Li", "Zhang", "Liu"],
+        gamertags: ["Raijin", "Fujin", "Tengu", "Kappa", "Kitsune", "Tanuki", "Oni", "Yurei", "Bakemono", "Kodama", "Dragon", "Tiger", "Crane", "Monkey", "Snake"]
+    },
+    "Americas": {
+        first: ["Gabriel", "Lucas", "Mateus", "Diego", "Felipe", "Thiago", "Joao", "Nicolas", "Enzo", "Gustavo", "Leonardo", "Bruno", "Rodrigo", "Ricardo", "Eduardo"],
+        last: ["Silva", "Santos", "Oliveira", "Souza", "Rodrigues", "Ferreira", "Alves", "Pereira", "Lima", "Gomes", "Costa", "Ribeiro", "Martins", "Carvalho", "Almeida"],
+        gamertags: ["Jaguar", "Condor", "Puma", "Caiman", "Anaconda", "Ocelot", "Toucan", "Macaw", "Harpy", "Iguana", "Capybara", "Armadillo", "Tapir", "Sloth", "Coati"]
+    },
+    "China": {
+        first: ["Wei", "Hao", "Yi", "Bo", "Jun", "Zhe", "Chen", "Yang", "Fan", "Hui", "Tao", "Peng", "Qiang", "Lei", "Ming"],
+        last: ["Wang", "Li", "Zhang", "Liu", "Chen", "Yang", "Huang", "Zhao", "Wu", "Zhou", "Xu", "Sun", "Ma", "Zhu", "Hu"],
+        gamertags: ["Qilin", "Pixiu", "Fenghuang", "Long", "Baihu", "Zhuque", "Xuanwu", "Hundun", "Taotie", "Qiongqi", "Taowu", "Zhulong", "Bixi", "Chiwen", "Suanni"]
+    }
 };
 
 export function generatePlayer(region = "North America", forceRole = null, forceRating = null) {
@@ -24,11 +44,16 @@ export function generatePlayer(region = "North America", forceRole = null, force
     const nationality = regionNationalities[Math.floor(Math.random() * regionNationalities.length)];
     const age = Math.floor(Math.random() * 10) + 17; // 17-26
     
+    const regionNames = playerNames[region] || playerNames["North America"];
+    const gamertag = regionNames.gamertags[Math.floor(Math.random() * regionNames.gamertags.length)] + (Math.random() > 0.7 ? Math.floor(Math.random() * 99) : "");
+    
     const base = forceRating || 75;
     const ratings = PlayerRating.generateRandom(base, 25);
     
     const role = forceRole || Player.prototype.getRandomRole();
-    const player = new Player(null, role, ratings, null, nationality, age);
+    const player = new Player(gamertag, role, ratings, null, nationality, age);
+    player.gamertag = gamertag; // Set gamertag explicitly as well
+    player.name = gamertag;     // Ensure name is also just the gamertag
     player.teamId = null; // Explicitly set teamId to null for free agents
     player.team = null;   // Explicitly set team to null for free agents
     
@@ -51,7 +76,7 @@ export function assignPlayersToTeams(teamsToAssign, region) {
             ...team,
             players: teamPlayers,
             // Recalculate power based on assigned players
-            power: Math.round((teamPlayers.reduce((sum, p) => sum + p.overall, 0) / teamPlayers.length) * 10) / 10
+            power: Math.round(teamPlayers.reduce((sum, p) => sum + p.overall, 0) / teamPlayers.length)
         };
     });
     return teamsWithPlayers;
@@ -69,7 +94,10 @@ export function generatePlayersForTeam(teamName, region, teamId = null, teamPowe
         console.log(`Found ${realPlayers[realTeamKey].length} real players for ${teamName} (matched as ${realTeamKey})`);
         realPlayers[realTeamKey].forEach(p => {
             const ratings = PlayerRating.generateRandom(p.baseRating, 15);
+            // Use p.name as both name and gamertag for real players
             const player = new Player(p.name, p.role, ratings, normalizedTeamId, p.nationality, p.age);
+            player.gamertag = p.name;
+            player.name = p.name;
             // Also set team name for better filtering
             player.team = teamName;
             teamPlayers.push(player);
@@ -81,8 +109,8 @@ export function generatePlayersForTeam(teamName, region, teamId = null, teamPowe
             const roles = ["Duelist", "Duelist", "Initiator", "Controller", "Sentinel"];
             for (let i = teamPlayers.length; i < 5; i++) {
                 const role = roles[i] || "Flex";
-                const baseRating = 75 + (teamPower / 10);
-                const player = generatePlayer(region, role, baseRating);
+            const baseRating = Math.round(75 + (teamPower / 10));
+            const player = generatePlayer(region, role, baseRating);
                 player.teamId = normalizedTeamId;
                 player.team = teamName;
                 teamPlayers.push(player);
@@ -92,7 +120,7 @@ export function generatePlayersForTeam(teamName, region, teamId = null, teamPowe
         console.log(`No real players found for ${teamName}, generating randoms...`);
         const roles = ["Duelist", "Duelist", "Initiator", "Controller", "Sentinel"];
         roles.forEach(role => {
-            const baseRating = 75 + (teamPower / 10);
+            const baseRating = Math.round(75 + (teamPower / 10));
             const player = generatePlayer(region, role, baseRating);
             player.teamId = normalizedTeamId;
             player.team = teamName;
