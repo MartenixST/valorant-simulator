@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { handleAiRosterChanges, hireFreeAgentForTeam } from '../ai_manager.js';
-import { saveCareer, getKickoffState } from '../career_local_storage.jsx';
-import { Player, Team, MatchSimulator } from '../simulation.js';
+import { saveCareer, getKickoffState, saveKickoffState } from '../career_local_storage.jsx';
+import { Player, Team, MatchSimulator, MAP_COORDINATES } from '../simulation.js';
 import { teams, teamLogos } from '../teams.js';
+import { ensureIglAssignment } from '../players.js';
 import CareerLoadingOverlay from './CareerLoadingOverlay.jsx';
-import { generateKickoffState, automateKickoffTournament, getQualifiedTeams } from '../kickoff_automation.js';
+import { generateKickoffState, automateKickoffTournament, getQualifiedTeams } from '../tournaments/kickoff/kickoff_automation.js';
+import { automateMastersTournament } from '../tournaments/masters/masters_automation.js';
 
 const SimWeekButton = ({ activeSave, setActiveSave }) => {
   const [isSimulating, setIsSimulating] = useState(false);
@@ -75,19 +77,24 @@ const SimWeekButton = ({ activeSave, setActiveSave }) => {
       };
     });
 
+    const availableMaps = Object.keys(MAP_COORDINATES);
+
     while (t1Maps < 2 && t2Maps < 2) {
       t1.score = 0;
       t2.score = 0;
       t1.side = 'attack';
       t2.side = 'defense';
       
+      // Pick a random map
+      const randomMap = availableMaps[Math.floor(Math.random() * availableMaps.length)];
+      
       const currentMapLogs = [];
-      const matchSim = new MatchSimulator(t1, t2, currentMapLogs, strategies);
+      const matchSim = new MatchSimulator(t1, t2, currentMapLogs, strategies, randomMap);
       matchSim.simulateMatch();
 
       const mapScore = `${t1.score}-${t2.score}`;
-      mapResults.push({ score: mapScore });
-      matchLogs.push({ map: mapResults.length, score: mapScore }); // Removed events: [...currentMapLogs] to save space
+      mapResults.push({ score: mapScore, map: randomMap });
+      matchLogs.push({ map: mapResults.length, mapName: randomMap, score: mapScore }); // Removed events: [...currentMapLogs] to save space
 
       if (t1.score >= 13) t1Maps++;
       else t2Maps++;
@@ -128,17 +135,17 @@ const SimWeekButton = ({ activeSave, setActiveSave }) => {
             return t.name && pTeamNameNorm && pTeamNameNorm === normalize(t.name);
         });
         const avgPower = teamPlayers.length > 0 
-            ? Math.round((teamPlayers.reduce((sum, p) => sum + (p.overall || 75), 0) / teamPlayers.length) * 10) / 10
-            : Math.round((t.power || 75) * 10) / 10;
+            ? Math.round(teamPlayers.reduce((sum, p) => sum + (p.overall || 75), 0) / teamPlayers.length)
+            : Math.round(t.power || 75);
         const avgPotential = teamPlayers.length > 0
-            ? Math.round((teamPlayers.reduce((sum, p) => sum + (p.potential || 80), 0) / teamPlayers.length) * 10) / 10
-            : Math.round((t.potential || 80) * 10) / 10;
+            ? Math.round(teamPlayers.reduce((sum, p) => sum + (p.potential || 80), 0) / teamPlayers.length)
+            : Math.round(t.potential || 80);
             
         return {
             ...t,
             currentPower: avgPower,
             currentPotential: avgPotential,
-            strength: Math.round(((avgPower + avgPotential) / 2) * 10) / 10
+            strength: Math.round((avgPower + avgPotential) / 2)
         };
     });
 
@@ -248,7 +255,7 @@ const SimWeekButton = ({ activeSave, setActiveSave }) => {
       const playerTeam = teams.find(t => String(t.id) === String(activeSave.teamId));
       if (playerTeam) {
         const region = playerTeam.region;
-        const kickoffState = getKickoffState(activeSave.id);
+        const kickoffState = getKickoffState(region, activeSave.id);
         
         // Check if the grand final has a winner
         const isKickoffComplete = kickoffState && 
@@ -288,11 +295,15 @@ const SimWeekButton = ({ activeSave, setActiveSave }) => {
       // 1. Increment week
       let nextWeek = currentWeek + 1;
       let nextSeason = activeSave.season || 1;
+
+      // Handle tournament transitions and break weeks
+      // Kickoff is Week 4. Week 5 should be a break. Week 6 is Masters Bangkok.
+      const isBreakWeek = currentWeek === 5;
       
       // 2. AI Roster Changes
       const { updatedSave: aiUpdatedSave, changes: rosterChanges } = handleAiRosterChanges(activeSave);
 
-      // 2.5 Simulate AI Team Matches (Only if not prep week)
+      // 2.5 Simulate AI Team Matches (Only if not prep week and not break week)
       const simulatedMatches = [];
       const aiTeams = teams.filter(t => String(t.id) !== String(activeSave.teamId));
       
@@ -306,7 +317,7 @@ const SimWeekButton = ({ activeSave, setActiveSave }) => {
 
       const regions = ["Americas", "EMEA", "Pacific", "China"];
 
-      if (!isPrepWeek) {
+      if (!isPrepWeek && !isBreakWeek) {
         // Group teams by region and simulate some intra-regional matches
         regions.forEach(region => {
           const regionalTeams = aiTeams.filter(t => t.region === region);
@@ -370,6 +381,7 @@ const SimWeekButton = ({ activeSave, setActiveSave }) => {
       // KICKOFF AUTOMATION: Start on Week 4 (after 3 weeks of prep)
       const allQualifiedTeams = activeSave.qualifiedTeams || {};
       const kickoffResults = activeSave.kickoffResults || {};
+      const updatedPlayers = [...aiUpdatedSave.players];
 
       if (currentWeek === 4) {
         regions.forEach(region => {
@@ -379,24 +391,287 @@ const SimWeekButton = ({ activeSave, setActiveSave }) => {
             let regionState = generateKickoffState(region);
             
             // If it's the player's region, we might want to check if they have a state in localStorage
-            if (region === (teams.find(t => String(t.id) === String(activeSave.teamId))?.region)) {
-                const localState = getKickoffState(activeSave.id);
+            const playerTeamData = teams.find(t => String(t.id) === String(activeSave.teamId));
+            if (region === playerTeamData?.region) {
+                const localState = getKickoffState(region, activeSave.id);
                 if (localState && !localState.dirty) {
                     regionState = localState;
                 }
             }
 
             // Automate the tournament
-            const completedState = automateKickoffTournament(regionState, aiUpdatedSave.players, simulateAiMatch);
+            const completedState = automateKickoffTournament(regionState, updatedPlayers, simulateAiMatch);
             kickoffResults[region] = completedState;
             allQualifiedTeams[region] = getQualifiedTeams(completedState);
+            
+      // 3. Update Championship Points based on Kickoff results
+            // Kickoff winner gets 3 points.
+            if (completedState.series['K-GF'] && completedState.series['K-GF'].winner) {
+                const winnerName = completedState.series['K-GF'].winner;
+                if (!aiUpdatedSave.championshipPoints) aiUpdatedSave.championshipPoints = {};
+                aiUpdatedSave.championshipPoints[winnerName] = (aiUpdatedSave.championshipPoints[winnerName] || 0) + 3;
+                console.log(`CP: ${winnerName} gets +3 points for winning Kickoff.`);
+            }
+
+            // Also add 1 point for every match win in the tournament series
+            Object.values(completedState.series).forEach(s => {
+                if (s.winner) {
+                    if (!aiUpdatedSave.championshipPoints) aiUpdatedSave.championshipPoints = {};
+                    aiUpdatedSave.championshipPoints[s.winner] = (aiUpdatedSave.championshipPoints[s.winner] || 0) + 1;
+                    console.log(`CP: ${s.winner} gets +1 point for a match win in Kickoff.`);
+                }
+            });
+
+            // Save the state for this region
+            saveKickoffState(completedState, region, activeSave.id);
           }
         });
       }
 
-      // 3. Player Development
+      // MASTERS BANGKOK AUTOMATION: Start on Week 6
+      let mastersResults = activeSave.mastersState || null;
+      if (nextWeek === 6) {
+        // Just initialize the state, don't simulate anything yet
+        if (!mastersResults) {
+          console.log("Initializing Masters Bangkok state...");
+          const flatQualifiedTeams = [...new Set(
+            Object.values(allQualifiedTeams)
+              .flat()
+              .filter(t => t && (typeof t === 'string' || t.name))
+              .map(t => typeof t === 'string' ? t : t.name)
+          )];
+          
+          if (flatQualifiedTeams.length >= 8) {
+            mastersResults = {
+              swiss: {
+                rounds: [],
+                teamStats: {},
+                matches: {}
+              },
+              playoffs: {
+                semifinals: [],
+                grandFinal: null,
+                matches: {}
+              },
+              series: {},
+              complete: false,
+              dirty: false
+            };
+            flatQualifiedTeams.forEach(teamName => {
+              mastersResults.swiss.teamStats[teamName] = { wins: 0, losses: 0, qualified: false, eliminated: false };
+            });
+          }
+        }
+      } else if (nextWeek > 6) {
+        // Handle Masters Bangkok progression
+        if (mastersResults && !mastersResults.complete) {
+          console.log("Checking Masters Bangkok completion status...", mastersResults);
+          // Check if the current round is finished
+          let allMatchesFinished = true;
+          let stage = "unknown";
+          
+          // Determine current stage and check only those matches
+          if (mastersResults.playoffs && mastersResults.playoffs.grandFinal) {
+            stage = "Grand Final";
+            const gfData = mastersResults.playoffs.matches[mastersResults.playoffs.grandFinal];
+            // If we have a winner, it's finished!
+            if (gfData && gfData.winner) {
+              console.log("SimWeekButton: Found Grand Final winner:", gfData.winner);
+              allMatchesFinished = true;
+              // Sync the complete flag if it was somehow missing
+              mastersResults.complete = true;
+            } else {
+              allMatchesFinished = false;
+              console.log("SimWeekButton: Grand Final not finished yet:", gfData);
+            }
+          } else if (mastersResults.playoffs && mastersResults.playoffs.semifinals && mastersResults.playoffs.semifinals.length > 0) {
+            stage = "Semifinals";
+            const sfFinished = mastersResults.playoffs.semifinals.every(id => {
+              const matchData = mastersResults.playoffs.matches[id];
+              return matchData && matchData.winner !== null && typeof matchData.winner !== 'undefined';
+            });
+            if (!sfFinished) allMatchesFinished = false;
+            console.log("SimWeekButton: Semifinals finished check:", sfFinished);
+          } else if (mastersResults.swiss && mastersResults.swiss.rounds && mastersResults.swiss.rounds.length > 0) {
+            stage = "Swiss";
+            const latestRound = mastersResults.swiss.rounds[mastersResults.swiss.rounds.length - 1];
+            if (latestRound && latestRound.matches) {
+              allMatchesFinished = latestRound.matches.every(m => {
+                const matchId = typeof m === 'string' ? m : (m.id || m);
+                const matchData = mastersResults.swiss.matches[matchId];
+                return matchData && matchData.winner !== null && typeof matchData.winner !== 'undefined';
+              });
+            }
+            console.log("SimWeekButton: Swiss Stage finished check:", allMatchesFinished);
+          }
+
+          if (!allMatchesFinished) {
+            console.warn(`Masters Bangkok ${stage} not finished yet!`, mastersResults);
+            alert(`You must complete all matches in the current Masters Bangkok round (${stage}) before simulating to the next week!`);
+            setIsSimulating(false);
+            return;
+          }
+          console.log("SimWeekButton: All matches finished for stage:", stage);
+        }
+
+        // If tournament is already complete, we don't need to automate it anymore
+        if (mastersResults && mastersResults.complete) {
+          console.log("Masters Bangkok is already complete. Skipping automation.");
+        } else {
+          console.log("Automating one round of Masters Bangkok...");
+          const flatQualifiedTeams = [...new Set(
+            Object.values(allQualifiedTeams)
+              .flat()
+              .filter(t => t && (typeof t === 'string' || t.name))
+              .map(t => typeof t === 'string' ? t : t.name)
+          )];
+
+          if (flatQualifiedTeams.length >= 8) {
+            const oldState = JSON.stringify(mastersResults);
+            mastersResults = automateMastersTournament(flatQualifiedTeams, updatedPlayers, simulateAiMatch, mastersResults, activeSave.team);
+            
+            if (mastersResults && JSON.stringify(mastersResults) !== oldState) {
+                // Find what changed in matches
+                const allMatches = { ...mastersResults.swiss.matches, ...mastersResults.playoffs.matches };
+                const parsedOld = JSON.parse(oldState);
+                const oldMatches = { ...(parsedOld.swiss?.matches || {}), ...(parsedOld.playoffs?.matches || {}) };
+                
+                Object.keys(allMatches).forEach(matchId => {
+                    if (allMatches[matchId].winner && (!oldMatches[matchId] || !oldMatches[matchId].winner)) {
+                        const winnerName = allMatches[matchId].winner;
+                        if (!aiUpdatedSave.championshipPoints) aiUpdatedSave.championshipPoints = {};
+                        aiUpdatedSave.championshipPoints[winnerName] = (aiUpdatedSave.championshipPoints[winnerName] || 0) + 1;
+                        console.log(`CP: ${winnerName} gets +1 point for a match win in Masters.`);
+                    }
+                });
+
+                // If Masters is newly complete, award 3 points to the winner
+                if (mastersResults.complete && !parsedOld.complete) {
+                    const gfMatch = mastersResults.playoffs.matches['M-PLAYOFF-GF'];
+                    if (gfMatch && gfMatch.winner) {
+                        const winnerName = gfMatch.winner;
+                        if (!aiUpdatedSave.championshipPoints) aiUpdatedSave.championshipPoints = {};
+                        aiUpdatedSave.championshipPoints[winnerName] = (aiUpdatedSave.championshipPoints[winnerName] || 0) + 3;
+                        console.log(`CP: ${winnerName} gets +3 points for winning Masters.`);
+                    }
+                }
+            }
+          }
+        }
+      }
+
+      // 3. Player Development & Match Performance
+      // Apply match performance updates first
+      // Ensure we use the players list that might have been updated by tournament automation
+      const playersWithPerformance = [...updatedPlayers];
+      simulatedMatches.forEach(match => {
+        if (match.playerStats) {
+          Object.keys(match.playerStats).forEach(playerId => {
+            const playerIdx = playersWithPerformance.findIndex(p => String(p.id) === String(playerId));
+            if (playerIdx !== -1) {
+              const pData = playersWithPerformance[playerIdx];
+              const player = Player.fromJSON(pData);
+              const stats = match.playerStats[playerId];
+              
+              // Apply performance-based rating changes
+              player.rating.applyMatchPerformance(stats);
+              
+              // Update the player data in our list
+              playersWithPerformance[playerIdx] = {
+                ...pData,
+                rating: { ...player.rating },
+                overall: player.overall,
+                potential: player.potential
+              };
+            }
+          });
+        }
+      });
+
+      // Also apply performance from Kickoff tournaments if they happened
+      if (currentWeek === 4) {
+        regions.forEach(region => {
+          const kickoff = kickoffResults[region];
+          if (kickoff && kickoff.series) {
+            Object.values(kickoff.series).forEach(series => {
+              if (series.playerStats) {
+                Object.keys(series.playerStats).forEach(playerId => {
+                  const playerIdx = playersWithPerformance.findIndex(p => String(p.id) === String(playerId));
+                  if (playerIdx !== -1) {
+                    const pData = playersWithPerformance[playerIdx];
+                    const player = Player.fromJSON(pData);
+                    const stats = series.playerStats[playerId];
+                    
+                    player.rating.applyMatchPerformance(stats);
+                    
+                    playersWithPerformance[playerIdx] = {
+                      ...pData,
+                      rating: { ...player.rating },
+                      overall: player.overall,
+                      potential: player.potential
+                    };
+                  }
+                });
+              }
+            });
+          }
+        });
+      }
+
+      // Apply performance from Masters Bangkok if it happened
+      if (nextWeek >= 6 && mastersResults) {
+        let matchesToApply = [];
+        
+        // 1. If we just simulated a Swiss round (nextWeek > 6 and Swiss is not finished)
+        if (nextWeek > 6 && mastersResults.swiss && mastersResults.swiss.rounds.length > 0) {
+          const activeSwissTeams = Object.values(mastersResults.swiss.teamStats).filter(s => !s.qualified && !s.eliminated).length;
+          // If we are still in Swiss or just finished it
+          const latestRound = mastersResults.swiss.rounds[mastersResults.swiss.rounds.length - 1];
+          latestRound.matches.forEach(mId => {
+            const match = mastersResults.swiss.matches[mId.id || mId];
+            if (match) matchesToApply.push(match);
+          });
+        }
+        
+        // 2. If we just simulated a Playoff round
+        if (nextWeek > 6 && mastersResults.playoffs) {
+          // If Semifinals just happened (we are moving to week where GF is next)
+          if (mastersResults.playoffs.semifinals.length === 2 && !mastersResults.playoffs.grandFinal) {
+             mastersResults.playoffs.semifinals.forEach(mId => {
+               const match = mastersResults.playoffs.matches[mId];
+               if (match) matchesToApply.push(match);
+             });
+          }
+          // If Grand Final just happened
+          if (mastersResults.playoffs.grandFinal) {
+            const match = mastersResults.playoffs.matches[mastersResults.playoffs.grandFinal];
+            if (match) matchesToApply.push(match);
+          }
+        }
+        
+        matchesToApply.forEach(series => {
+          if (series.playerStats) {
+            Object.keys(series.playerStats).forEach(playerId => {
+              const playerIdx = playersWithPerformance.findIndex(p => String(p.id) === String(playerId));
+              if (playerIdx !== -1) {
+                const pData = playersWithPerformance[playerIdx];
+                const player = Player.fromJSON(pData);
+                const stats = series.playerStats[playerId];
+                player.rating.applyMatchPerformance(stats);
+                playersWithPerformance[playerIdx] = {
+                  ...pData,
+                  rating: { ...player.rating },
+                  overall: player.overall,
+                  potential: player.potential
+                };
+              }
+            });
+          }
+        });
+      }
+
       // Apply weekly stat fluctuations to all players
-      const developedPlayers = aiUpdatedSave.players.map(pData => {
+      const developedPlayers = playersWithPerformance.map(pData => {
         const player = Player.fromJSON(pData);
         
         // Use player team's strategy activity if it's the player's team, else random for AI
@@ -572,6 +847,9 @@ const SimWeekButton = ({ activeSave, setActiveSave }) => {
       }
 
       // 5. Update basic info and sync kickoff state
+      const playerTeamData = teams.find(t => String(t.id) === String(activeSave.teamId));
+      const playerRegion = playerTeamData ? playerTeamData.region : "Americas";
+
       let updatedSave = {
         ...aiUpdatedSave,
         players: updatedPlayersForOffers,
@@ -585,11 +863,26 @@ const SimWeekButton = ({ activeSave, setActiveSave }) => {
           logs: m.logs, // Ensure logs are passed to history
           details: m
         }))],
-        kickoffState: getKickoffState(activeSave.id),
+        kickoffState: getKickoffState(playerRegion, activeSave.id),
         regularSeasonMatches: [...(aiUpdatedSave.regularSeasonMatches || []), ...simulatedMatches],
         qualifiedTeams: allQualifiedTeams,
-        kickoffResults: kickoffResults
+        kickoffResults: kickoffResults,
+        mastersState: mastersResults,
+        lastUpdate: Date.now()
       };
+
+      // Ensure we include any player roster changes from tournament automation
+      if (typeof updatedPlayers !== 'undefined') {
+          updatedSave.players = updatedPlayers;
+          // But we also need to keep the contract changes from updatedPlayersForOffers!
+          // So we merge them back
+          updatedPlayersForOffers.forEach(offerPlayer => {
+              const idx = updatedSave.players.findIndex(p => p.id === offerPlayer.id);
+              if (idx !== -1) {
+                  updatedSave.players[idx] = offerPlayer;
+              }
+          });
+      }
 
       // 6. Periodic Updates (Top 5 Contenders)
       if (nextWeek % 4 === 0) {
@@ -613,8 +906,12 @@ const SimWeekButton = ({ activeSave, setActiveSave }) => {
         rosterChanges.forEach(change => {
           messageContent += `- ${change}\n`;
         });
-      } else {
+      } else if (!isBreakWeek) {
         messageContent += "It was a relatively quiet week in the league with no major roster moves.";
+      }
+
+      if (isBreakWeek) {
+        messageContent += "The league is currently on a mid-season break. Teams are preparing for the upcoming Masters Bangkok tournament.\n\n";
       }
 
       if (activeSave.week === 1) {
@@ -636,6 +933,16 @@ const SimWeekButton = ({ activeSave, setActiveSave }) => {
         date: new Date().toLocaleDateString(),
         read: false
       };
+
+      // FINAL SANITY CHECK: Ensure every team (including user's) has exactly one IGL
+      // This handles cases where user hired an IGL or released their own
+      teams.forEach(t => {
+        const teamId = String(t.id);
+        const teamRoster = updatedSave.players.filter(p => String(p.teamId) === teamId);
+        if (teamRoster.length > 0) {
+            ensureIglAssignment(teamRoster);
+        }
+      });
       
       updatedSave.inbox = [...newInboxMessages, reportMessage, ...(updatedSave.inbox || [])];
       console.log("SimWeekButton: Updated inbox count:", updatedSave.inbox.length);

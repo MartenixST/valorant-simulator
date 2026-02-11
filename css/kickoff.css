@@ -1,3 +1,41 @@
+/* Region Selector Styling */
+.region-selector {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 20px;
+  padding: 10px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: var(--border-radius-md);
+  border: 1px solid var(--border-color);
+}
+
+.region-btn {
+  padding: 8px 16px;
+  background: var(--v-dark-grey);
+  color: var(--v-light-grey);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-sm);
+  cursor: pointer;
+  font-family: var(--font-v);
+  font-size: 14px;
+  transition: all 0.3s ease;
+  text-transform: uppercase;
+}
+
+.region-btn:hover {
+  background: var(--v-grey);
+  color: var(--v-white);
+  border-color: var(--v-white);
+}
+
+.region-btn.active {
+  background: var(--v-red);
+  color: var(--v-white);
+  border-color: var(--v-red);
+  box-shadow: 0 0 10px rgba(255, 70, 85, 0.4);
+}
+
 body {
   padding: 0 !important;
   text-align: left !important;

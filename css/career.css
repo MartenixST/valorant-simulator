@@ -442,6 +442,77 @@ body {
   border-color: rgba(255, 255, 255, 0.2);
 }
 
+.player-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: auto;
+  padding-top: 15px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  flex-wrap: wrap;
+}
+
+.player-actions button {
+  flex: 1;
+  min-width: 100px;
+  padding: 8px 12px;
+  font-size: 0.75rem;
+  font-family: var(--font-v);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--v-white);
+}
+
+.player-actions button:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: var(--v-white);
+}
+
+.player-actions .btn-toggle-roster.to-starter {
+  background: rgba(0, 255, 133, 0.1);
+  border-color: rgba(0, 255, 133, 0.3);
+  color: #00ff85;
+}
+
+.player-actions .btn-toggle-roster.to-starter:hover {
+  background: rgba(0, 255, 133, 0.2);
+  border-color: #00ff85;
+}
+
+.player-actions .btn-toggle-roster.to-sub {
+  background: rgba(255, 185, 0, 0.1);
+  border-color: rgba(255, 185, 0, 0.3);
+  color: #ffb900;
+}
+
+.player-actions .btn-toggle-roster.to-sub:hover {
+  background: rgba(255, 185, 0, 0.2);
+  border-color: #ffb900;
+}
+
+.player-actions .btn-set-igl.active {
+  background: var(--v-red);
+  border-color: var(--v-red);
+  color: white;
+}
+
+.player-actions .btn-release {
+  color: #ff4655;
+}
+
+.player-actions .btn-release:hover {
+  background: rgba(255, 70, 85, 0.1);
+  border-color: #ff4655;
+}
+
+.player-actions .btn-edit {
+  background: rgba(255, 255, 255, 0.05);
+}
+
 .player-card-inner {
   padding: 20px;
   flex: 1;
@@ -517,18 +588,73 @@ body {
 
 .player-meta-info {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: 12px;
-  font-size: 0.8rem;
+  font-size: 0.85rem;
   color: var(--v-light-grey);
   margin-bottom: 20px;
   padding-bottom: 15px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.meta-item.value {
+.meta-section {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.meta-section.nationality {
+  background: rgba(255, 255, 255, 0.03);
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  transition: all 0.2s ease;
+}
+
+.player-card:hover .meta-section.nationality {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.flag-icon-main {
+  width: 24px;
+  height: 18px;
+  object-fit: cover;
+  border-radius: 2px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.nationality-text {
+  font-family: var(--font-v);
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  color: var(--v-white);
+  text-transform: uppercase;
+  font-size: 0.75rem;
+}
+
+.meta-section.details {
+  justify-content: flex-start;
+  gap: 15px;
+  padding-left: 4px;
+}
+
+.meta-detail {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  opacity: 0.9;
+}
+
+.meta-detail strong {
+  color: var(--v-white);
+  font-family: var(--font-v);
+  font-size: 0.8rem;
+}
+
+.meta-detail.salary strong {
   color: var(--v-cyan);
-  font-weight: bold;
 }
 
 .player-stats-detailed {
@@ -633,19 +759,74 @@ body {
 .player-role-select {
   background: rgba(255, 255, 255, 0.1);
   color: var(--v-white);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  padding: 4px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 6px 12px;
   border-radius: 4px;
-  font-size: 0.7rem;
+  font-size: 0.85rem;
   font-weight: bold;
   text-transform: uppercase;
   cursor: pointer;
   transition: all 0.2s;
+  outline: none;
+  min-width: 120px;
 }
 
 .player-role-select:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.15);
   border-color: var(--v-red);
+}
+
+.player-role-select option {
+  background: #1a1a1a;
+  color: white;
+  padding: 10px;
+}
+
+.igl-badge {
+  background: var(--v-yellow);
+  color: black;
+  font-size: 0.7rem;
+  font-weight: 900;
+  padding: 2px 8px;
+  border-radius: 4px;
+  margin-left: 8px;
+  text-transform: uppercase;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  box-shadow: 0 0 10px rgba(255, 184, 0, 0.3);
+}
+
+.btn-set-igl {
+  width: 100%;
+  background: rgba(255, 184, 0, 0.1);
+  color: var(--v-yellow);
+  border: 1px solid var(--v-yellow);
+  padding: 10px;
+  font-family: var(--font-v);
+  font-size: 11px;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: all 0.2s;
+  border-radius: 4px;
+  margin-bottom: 8px;
+}
+
+.btn-set-igl:hover {
+  background: var(--v-yellow);
+  color: black;
+}
+
+.btn-set-igl.active {
+  background: var(--v-yellow);
+  color: black;
+  box-shadow: 0 0 15px rgba(255, 184, 0, 0.3);
+}
+
+.btn-set-igl.active:hover {
+  background: #e6a700;
 }
 
 .substitute-card {

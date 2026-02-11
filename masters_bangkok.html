@@ -13,32 +13,19 @@
     <div id="career-masters" class="career-section">
         <div class="masters-header">
             <h1>Masters Bangkok 2025</h1>
-            <p>Qualified Teams: <span id="qualified-teams-count">0</span> / 2</p>
+            <p>Qualified Teams: <span id="qualified-teams-count">0</span> / 8</p>
         </div>
 
         <div id="mastersWatch" class="box" style="display:none;"></div>
         
         <div class="bracket-wrapper" id="mastersBracket">
-            <div class="bracket-section" id="mastersGrandFinal">
-                <h3>Grand Final</h3>
-                <div id="mastersGrandFinalBracket" class="bracket-grid"></div>
-            </div>
-
-            <div class="bracket-section" id="mastersUpper">
-                <h3>Upper Bracket</h3>
-                <div id="mastersUpperBracket" class="bracket-grid"></div>
-            </div>
-
-            <div class="bracket-section" id="mastersLower">
-                <h3>Lower Bracket</h3>
-                <div id="mastersLowerBracket" class="bracket-grid"></div>
-            </div>
+            <div id="mastersMainBracket"></div>
         </div>
 
         <div id="not-qualified-msg" class="box" style="display:none;">
             <p>Waiting for teams to qualify from Kickoff tournaments...</p>
         </div>
     </div>
-    <script src="src/masters_bangkok_entry.jsx" type="module"></script>
+    <script src="src/tournaments/masters/bangkok/masters_bangkok_entry.jsx" type="module"></script>
 </body>
 </html>

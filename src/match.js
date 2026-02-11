@@ -40,7 +40,9 @@ export function simulateMatch() {
   logEl.innerHTML = "";
   log(`Starting match: ${team1.name} vs ${team2.name}`);
 
-  const matchSimulator = new MatchSimulator(team1, team2);
+  const maps = ['Ascent', 'Bind', 'Haven', 'Split', 'Sunset', 'Abyss', 'Pearl'];
+  const randomMap = maps[Math.floor(Math.random() * maps.length)];
+  const matchSimulator = new MatchSimulator(team1, team2, [], {}, randomMap);
   const result = matchSimulator.simulateMatch();
 
   log(`Match Result: ${result.winner.name} wins ${result.score.team1} - ${result.score.team2}`);

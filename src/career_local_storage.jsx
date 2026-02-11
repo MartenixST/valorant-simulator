@@ -1,12 +1,12 @@
 import { teams, teamLogos } from './teams.js';
 import { Player, PlayerRating } from "./simulation.js";
 import { realPlayers } from './real_players.js';
-import { generatePlayer, generatePlayersForRegion as genPlayersRegion, generatePlayersForTeam } from './players.js';
+import { generatePlayer, generatePlayersForRegion as genPlayersRegion, generatePlayersForTeam, resetRegionalEliteCount } from './players.js';
 
 const API_BASE_URL = 'http://localhost:5000/api';
 
-export function saveKickoffState(st, saveId = null) {
-  const key = saveId ? `valorantKickoffState_${saveId}` : "valorantKickoffState";
+export function saveKickoffState(st, region = "Americas", saveId = null) {
+  const key = saveId ? `valorantKickoffState_${region}_${saveId}` : `valorantKickoffState_${region}`;
   
   // OPTIMIZATION: Before saving, clean up any old kickoff states from other saves to free up space
   if (saveId) {
@@ -69,10 +69,11 @@ export function saveKickoffState(st, saveId = null) {
   }
 }
 
-export function getKickoffState(saveId = null) {
-  const key = saveId ? `valorantKickoffState_${saveId}` : "valorantKickoffState";
+export function getKickoffState(region = "Americas", saveId = null) {
+  const key = saveId ? `valorantKickoffState_${region}_${saveId}` : `valorantKickoffState_${region}`;
   const storedState = localStorage.getItem(key);
   const defaultState = {
+    region: region,
     series: {},
     playInRound1: [],
     ubRound1: [],
@@ -81,6 +82,7 @@ export function getKickoffState(saveId = null) {
     lbRound1: [],
     lbRound2: [],
     lbRound3: [],
+    lbRound4: [],
     lbFinal: [],
     grandFinal: [],
     dirty: true // Mark as dirty to force re-initialization if state is incomplete
@@ -195,6 +197,7 @@ function generateFreeAgents(region) {
 }
 
 export function createNewSave(managerName, teamName, region) {
+    resetRegionalEliteCount();
     const selectedTeam = teams.find(t => t.name === teamName);
     const teamId = selectedTeam ? selectedTeam.id : null;
 
@@ -479,7 +482,8 @@ export function finalizeLoad(foundSave, actualId) {
         foundSave.players = [];
     }
 
-    // 2. Full World Recovery: Ensure every team from teams.js has at least 5 players
+    // 2. Full World Recovery: Ensure every team from teams.js (EXCEPT the user's team) has at least 5 players
+    // The user's team is allowed to have fewer than 5 players if they want to release everyone.
     
     // First, try to assign players who have a team name but no teamId
     // AND ALSO try to match by name if teamId is missing
@@ -506,6 +510,13 @@ export function finalizeLoad(foundSave, actualId) {
     let addedPlayersCount = 0;
     for (const team of teams) {
         const teamIdStr = String(team.id);
+        const isUserTeam = foundSave.teamId && String(foundSave.teamId) === teamIdStr;
+        
+        // Skip user's team if it has fewer than 5 players - they might be doing roster management
+        if (isUserTeam) {
+            continue;
+        }
+
         const teamPlayers = foundSave.players.filter(p => String(p.teamId) === teamIdStr);
         
         if (teamPlayers.length < 5) {
@@ -574,7 +585,9 @@ export function finalizeLoad(foundSave, actualId) {
     }
 
     // Final kickoff state sync
-    const kickoffState = getKickoffState(actualId);
+    const playerTeamData = teams.find(t => String(t.id) === String(foundSave.teamId));
+    const playerRegion = playerTeamData ? playerTeamData.region : "Americas";
+    const kickoffState = getKickoffState(playerRegion, actualId);
     foundSave.kickoffState = kickoffState;
     
     // Sync back to localStorage for consistency, handling quota errors
@@ -726,7 +739,9 @@ export async function saveCareer(updatedSave) {
     // Get the current kickoff state from localStorage before saving
     // If it's not on the object, try to fetch it to ensure it's preserved
     if (!updatedSave.kickoffState) {
-        updatedSave.kickoffState = getKickoffState(updatedSave.id);
+        const playerTeamData = teams.find(t => String(t.id) === String(updatedSave.teamId));
+        const playerRegion = playerTeamData ? playerTeamData.region : "Americas";
+        updatedSave.kickoffState = getKickoffState(playerRegion, updatedSave.id);
     }
     
     // Always save to localStorage as a primary backup/source, but handle quota errors

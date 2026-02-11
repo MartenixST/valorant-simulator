@@ -9,6 +9,12 @@
     <link rel="stylesheet" href="css/kickoff.css">
 </head>
 <body>
+    <div id="kickoff-region-selector" class="region-selector">
+        <button class="region-btn active" data-region="Americas">Americas</button>
+        <button class="region-btn" data-region="EMEA">EMEA</button>
+        <button class="region-btn" data-region="Pacific">Pacific</button>
+        <button class="region-btn" data-region="China">China</button>
+    </div>
     <div id="career-kickoff" class="career-section">
         <!-- Kickoff header will be dynamically created by renderKickoff() -->
         <div id="kickoffWatch" class="box" style="display:none;"></div>
@@ -35,7 +41,7 @@
           </div>
         </div>
     </div>
-    <script src="src/kickoff_entry.jsx" type="module"></script>
+    <script src="src/tournaments/kickoff/kickoff_entry.jsx" type="module"></script>
 
 </body>
 </html>

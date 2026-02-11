@@ -16,10 +16,10 @@ export class PlayerRating {
     }
 
     // Generate random ratings for a new player
-    static generateRandom(base = 75, variance = 30) {
-        // Ensure base is high enough for competitive play
-        const effectiveBase = Math.max(base, 65);
-        const rand = () => Math.round(Math.floor(Math.random() * variance) + (effectiveBase - variance/2));
+    static generateRandom(base = 60, variance = 40) {
+        // Range: base +/- variance/2
+        // If base is 60 and variance is 40, range is 40-80
+        const rand = () => Math.round(Math.floor(Math.random() * variance) + (base - variance/2));
         
         const ratings = new PlayerRating(
             Math.max(1, Math.min(99, rand())), // Aim
@@ -85,53 +85,123 @@ export class PlayerRating {
 
     // New development logic
     develop(activity = 'standard') {
-        // Higher potential means faster and more likely growth
-        let growthChance = (this.potential / 100) * 0.4; // Up to 40% chance of growth
-        const declineChance = (1 - (this.potential / 100)) * 0.1; // Small chance of decline if potential is low
+        // Slower growth logic:
+        // 1. Lower base growth chance (max 15% instead of 40%)
+        // 2. High potential ("gifted") players get a slight boost
+        const isGifted = this.potential >= 85;
+        let baseGrowthChance = (this.potential / 100) * 0.15; 
+        if (isGifted) baseGrowthChance *= 1.2; // Gifted players grow slightly more consistently
+
+        const declineChance = (1 - (this.potential / 100)) * 0.05; // Lower decline chance
 
         // Activity modifiers
+        let activityMultiplier = 1.0;
         if (activity === 'scrim') {
-            growthChance *= 1.5; // 50% more growth chance
+            activityMultiplier = 1.3;
         }
 
         const stats = ['aim', 'movement', 'gameSense', 'clutch', 'aggression', 'utility', 'mental', 'teamwork', 'consistency'];
         
-        stats.forEach(stat => {
-            let statGrowthChance = growthChance;
-            let growthMultiplier = 1;
+        // Instead of checking all 9 stats, only pick 3 random stats to potentially grow each week
+        // This significantly slows down overall progression
+        const shuffledStats = [...stats].sort(() => 0.5 - Math.random());
+        const statsToProcess = shuffledStats.slice(0, 3);
+
+        statsToProcess.forEach(stat => {
+            let statGrowthChance = baseGrowthChance * activityMultiplier;
+            let growthAmount = 1; // Always 1 point instead of 1-2
 
             // Activity specific stat boosts
             if (activity === 'practice') {
                 if (stat === 'aim' || stat === 'movement') {
-                    statGrowthChance *= 2;
-                    growthMultiplier = 2;
+                    statGrowthChance *= 1.5;
                 }
             } else if (activity === 'bonding') {
                 if (stat === 'teamwork' || stat === 'mental') {
-                    statGrowthChance *= 2;
-                    growthMultiplier = 2;
+                    statGrowthChance *= 1.5;
                 }
             }
 
             if (Math.random() < statGrowthChance) {
-                // Grow by 1 to 2 points
-                const growth = (Math.floor(Math.random() * 2) + 1) * growthMultiplier;
-                this[stat] = Math.min(99, this[stat] + growth);
+                // Slower growth: Only 1 point at a time
+                this[stat] = Math.min(99, this[stat] + growthAmount);
             } else if (Math.random() < declineChance) {
                 // Small chance to decline slightly
-                const decline = Math.floor(Math.random() * 1) + 1;
-                this[stat] = Math.max(1, this[stat] - decline);
+                this[stat] = Math.max(1, this[stat] - 1);
             }
         });
 
         // Potential naturally declines very slowly as player nears it
-        if (this.calculateOverall() >= this.potential - 5) {
-            if (Math.random() < 0.1) { // 10% chance to drop potential by 1 point
+        if (this.calculateOverall() >= this.potential - 3) {
+            if (Math.random() < 0.05) { // 5% chance to drop potential (was 10%)
                 this.potential = Math.max(this.calculateOverall(), this.potential - 1);
             }
         }
 
         // Update potential to be at least overall, and round it
+        this.potential = Math.round(Math.max(this.potential, this.overall));
+    }
+
+    // Performance-based rating changes
+    applyMatchPerformance(stats) {
+        if (!stats || stats.rounds === 0) return;
+
+        const adr = stats.damage / stats.rounds;
+        const kd = stats.deaths > 0 ? stats.kills / stats.deaths : stats.kills;
+        const hsPercent = stats.kills > 0 ? (stats.hs / stats.kills) * 100 : 0;
+
+        // Determine if performance was "good", "average", or "bad"
+        // Requirements are now stricter
+        let performanceScore = 0;
+        
+        // ADR contribution (average is ~130-150)
+        if (adr > 180) performanceScore += 2;
+        else if (adr > 160) performanceScore += 1;
+        else if (adr < 90) performanceScore -= 1;
+        else if (adr < 70) performanceScore -= 2;
+
+        // KD contribution (average is 1.0)
+        if (kd > 1.8) performanceScore += 2;
+        else if (kd > 1.4) performanceScore += 1;
+        else if (kd < 0.7) performanceScore -= 1;
+        else if (kd < 0.5) performanceScore -= 2;
+
+        // Apply changes to specific stats based on performance
+        // Much lower chance to gain stats (20% instead of 50%)
+        if (performanceScore > 0) {
+            // Good performance - boost stats
+            const statsToBoost = ['aim', 'consistency', 'mental'];
+            if (adr > 170) statsToBoost.push('aggression');
+            if (hsPercent > 45) statsToBoost.push('aim');
+            
+            const isGifted = this.potential >= 85;
+
+            statsToBoost.forEach(s => {
+                // Slower: Only 20% chance to gain 1 point (30% if gifted)
+                const gainChance = isGifted ? 0.3 : 0.2;
+                if (Math.random() < gainChance) {
+                    this[s] = Math.min(99, this[s] + 1);
+                }
+            });
+
+            // Potential only increases on legendary performances
+            const potentialGainChance = isGifted ? 0.1 : 0.05;
+            if (performanceScore >= 4 && Math.random() < potentialGainChance) {
+                this.potential = Math.min(99, this.potential + 1);
+            }
+        } else if (performanceScore < 0) {
+            // Bad performance - potential for slight dip
+            const statsToDip = ['consistency', 'mental'];
+            const dipAmount = 1;
+            
+            statsToDip.forEach(s => {
+                // Slower: Only 15% chance to lose 1 point
+                if (Math.random() < 0.15) {
+                    this[s] = Math.max(1, this[s] - dipAmount);
+                }
+            });
+        }
+        
         this.potential = Math.round(Math.max(this.potential, this.overall));
     }
 }
@@ -141,8 +211,7 @@ export const ROLES = {
     INITIATOR: "Initiator",
     CONTROLLER: "Controller",
     SENTINEL: "Sentinel",
-    FLEX: "Flex",
-    IGL: "IGL"
+    FLEX: "Flex"
 };
 
 // Weapons
@@ -187,6 +256,7 @@ export class Player {
         this.name = name || Player.generateGamertag();
         this.gamertag = this.name;
         this.role = role || this.getRandomRole();
+        this.isIGL = false;
         this.rating = (ratings instanceof PlayerRating) ? ratings : new PlayerRating(
             ratings?.aim, ratings?.movement, ratings?.gameSense, 
             ratings?.clutch, ratings?.aggression, ratings?.utility, 
@@ -331,6 +401,7 @@ export class Player {
         player.kills = Number(data.kills ?? 0);
         player.deaths = Number(data.deaths ?? 0);
         player.assists = Number(data.assists ?? 0);
+        player.isIGL = !!data.isIGL;
         player.stats = data.stats || { kills: 0, deaths: 0, assists: 0, hs: 0, damageDealt: 0 };
         player.status = data.status || "active";
         
@@ -393,17 +464,185 @@ export class Team {
         const activePlayers = sortedPlayers.slice(0, 5);
         
         if (activePlayers.length === 0) return 50;
-        return Math.round((activePlayers.reduce((sum, p) => sum + p.overall, 0) / activePlayers.length) * 10) / 10;
+        
+        let basePower = activePlayers.reduce((sum, p) => sum + p.overall, 0) / activePlayers.length;
+        
+        // IGL Bonus: If the team has a designated IGL among active players, they get a strategy boost
+        const igl = activePlayers.find(p => p.isIGL);
+        if (igl) {
+            // Bonus scales with IGL's game sense and teamwork (up to +5 overall)
+            const iglBonus = ((igl.rating.gameSense + igl.rating.teamwork) / 200) * 5;
+            basePower += iglBonus;
+        }
+
+        return Math.round(basePower);
     }
 }
 
+// Map Coordinates for Interactive Map (Percentage based x, y)
+export const MAP_COORDINATES = {
+    'Abyss': {
+        'Attack Spawn': { x: 50, y: 92 },
+        'Defense Spawn': { x: 50, y: 8 },
+        'A Site': { x: 80, y: 35 },
+        'B Site': { x: 20, y: 35 },
+        'Mid': { x: 50, y: 50 },
+        'A Main': { x: 75, y: 65 },
+        'B Main': { x: 25, y: 65 },
+        'paths': {
+            'Attack Spawn': { 'A Site': ['A Main'], 'B Site': ['B Main'], 'Mid': ['Mid'] },
+            'A Main': { 'A Site': ['A Site'] },
+            'B Main': { 'B Site': ['B Site'] },
+            'Mid': { 'A Site': ['A Site'], 'B Site': ['B Site'] }
+        }
+    },
+    'Ascent': {
+        'Attack Spawn': { x: 50, y: 88 },
+        'Defense Spawn': { x: 50, y: 12 },
+        'A Site': { x: 82, y: 32 },
+        'B Site': { x: 18, y: 32 },
+        'Mid': { x: 50, y: 50 },
+        'A Main': { x: 75, y: 65 },
+        'B Main': { x: 25, y: 65 },
+        'paths': {
+            'Attack Spawn': { 'A Site': ['A Main'], 'B Site': ['B Main'], 'Mid': ['Mid'] },
+            'A Main': { 'A Site': ['A Site'] },
+            'B Main': { 'B Site': ['B Site'] },
+            'Mid': { 'A Site': ['A Site'], 'B Site': ['B Site'] }
+        }
+    },
+    'Bind': {
+        'Attack Spawn': { x: 50, y: 92 },
+        'Defense Spawn': { x: 50, y: 10 },
+        'A Site': { x: 85, y: 35 },
+        'B Site': { x: 15, y: 35 },
+        'A Short': { x: 70, y: 55 },
+        'B Long': { x: 30, y: 65 },
+        'Hookah': { x: 20, y: 50 },
+        'paths': {
+            'Attack Spawn': { 'A Site': ['A Short'], 'B Site': ['B Long', 'Hookah'] },
+            'A Short': { 'A Site': ['A Site'] },
+            'B Long': { 'B Site': ['B Site'] },
+            'Hookah': { 'B Site': ['B Site'] }
+        }
+    },
+    'Haven': {
+        'Attack Spawn': { x: 50, y: 92 },
+        'Defense Spawn': { x: 50, y: 8 },
+        'A Site': { x: 85, y: 30 },
+        'B Site': { x: 50, y: 30 },
+        'C Site': { x: 15, y: 30 },
+        'Mid': { x: 50, y: 60 },
+        'A Main': { x: 80, y: 65 },
+        'C Main': { x: 20, y: 65 },
+        'paths': {
+            'Attack Spawn': { 'A Site': ['A Main'], 'B Site': ['Mid'], 'C Site': ['C Main'] },
+            'A Main': { 'A Site': ['A Site'] },
+            'Mid': { 'B Site': ['B Site'], 'A Site': ['A Site'], 'C Site': ['C Site'] },
+            'C Main': { 'C Site': ['C Site'] }
+        }
+    },
+    'Split': {
+        'Attack Spawn': { x: 15, y: 92 },
+        'Defense Spawn': { x: 85, y: 8 },
+        'A Site': { x: 80, y: 28 },
+        'B Site': { x: 20, y: 28 },
+        'Mid': { x: 50, y: 55 },
+        'A Main': { x: 75, y: 72 },
+        'B Main': { x: 25, y: 72 },
+        'paths': {
+            'Attack Spawn': { 'A Site': ['A Main'], 'B Site': ['B Main'], 'Mid': ['Mid'] },
+            'A Main': { 'A Site': ['A Site'] },
+            'B Main': { 'B Site': ['B Site'] },
+            'Mid': { 'A Site': ['A Site'], 'B Site': ['B Site'] }
+        }
+    },
+    'Sunset': {
+        'Attack Spawn': { x: 85, y: 92 },
+        'Defense Spawn': { x: 15, y: 8 },
+        'A Site': { x: 82, y: 34 },
+        'B Site': { x: 18, y: 34 },
+        'Mid': { x: 50, y: 55 },
+        'A Main': { x: 78, y: 68 },
+        'B Main': { x: 22, y: 68 },
+        'paths': {
+            'Attack Spawn': { 'A Site': ['A Main'], 'B Site': ['B Main'], 'Mid': ['Mid'] },
+            'A Main': { 'A Site': ['A Site'] },
+            'B Main': { 'B Site': ['B Site'] },
+            'Mid': { 'A Site': ['A Site'], 'B Site': ['B Site'] }
+        }
+    },
+    'Pearl': {
+        'Attack Spawn': { x: 10, y: 50 },
+        'Defense Spawn': { x: 90, y: 50 },
+        'A Site': { x: 80, y: 38 },
+        'B Site': { x: 15, y: 38 },
+        'Mid': { x: 50, y: 55 },
+        'A Main': { x: 72, y: 72 },
+        'B Main': { x: 28, y: 75 },
+        'paths': {
+            'Attack Spawn': { 'A Site': ['A Main'], 'B Site': ['B Main'], 'Mid': ['Mid'] },
+            'A Main': { 'A Site': ['A Site'] },
+            'B Main': { 'B Site': ['B Site'] },
+            'Mid': { 'A Site': ['A Site'], 'B Site': ['B Site'] }
+        }
+    },
+    'Corrode': {
+        'Attack Spawn': { x: 90, y: 50 },
+        'Defense Spawn': { x: 10, y: 50 },
+        'A Site': { x: 78, y: 35 },
+        'B Site': { x: 22, y: 35 },
+        'Mid': { x: 50, y: 50 },
+        'paths': {
+            'Attack Spawn': { 'A Site': ['Mid'], 'B Site': ['Mid'], 'Mid': ['Mid'] },
+            'Mid': { 'A Site': ['A Site'], 'B Site': ['B Site'] }
+        }
+    }
+};
+
 export class RoundSimulator {
-    constructor(attackers, defenders, roundNumber, logs, strategies = {}) {
+    constructor(attackers, defenders, roundNumber, logs, strategies = {}, mapName = 'Ascent') {
         this.attackers = attackers;
         this.defenders = defenders;
         this.roundNumber = roundNumber;
         this.logs = logs || [];
         this.strategies = strategies; // { team1Id: strategy, team2Id: strategy }
+        this.mapName = mapName;
+    }
+
+    // Helper to get random position in a zone with jitter
+    getRandomPos(zoneName, playerIndex = 0, teamSide = null) {
+        const mapData = MAP_COORDINATES[this.mapName] || MAP_COORDINATES['Ascent'];
+        
+        let targetZoneName = zoneName;
+        // Map specific side names to coordinate keys if needed
+        if (zoneName === 'Spawn') {
+            targetZoneName = teamSide === 'attack' ? 'Attack Spawn' : 'Defense Spawn';
+        }
+
+        const zone = mapData[targetZoneName] || { x: 50, y: 50 };
+        
+        // Use player index to create a deterministic offset to prevent overlap
+        // but still keep it within the zone
+        const angle = (playerIndex / 5) * Math.PI * 2;
+        const radius = 2 + Math.random() * 2; // 2-4% radius
+        
+        return {
+            x: zone.x + Math.cos(angle) * radius,
+            y: zone.y + Math.sin(angle) * radius
+        };
+    }
+
+    // Pathing helper to get a route between two zones
+    getRoute(startZone, endZone) {
+        const mapData = MAP_COORDINATES[this.mapName] || MAP_COORDINATES['Ascent'];
+        const paths = mapData.paths || {};
+        
+        if (paths[startZone] && paths[startZone][endZone]) {
+            return [...paths[startZone][endZone], endZone];
+        }
+        
+        return [endZone];
     }
 
     handleEconomy(players, team) {
@@ -479,198 +718,140 @@ export class RoundSimulator {
         this.handleEconomy(activeAttackers, this.attackers);
         this.handleEconomy(activeDefenders, this.defenders);
 
-        const attackerPower = activeAttackers.reduce((sum, p) => {
-            // Weapon modifier (rifles are better than pistols)
-            let power = p.getOverallRating();
-            if (p.weapon.type === 'Rifle' || p.weapon.type === 'Sniper') power += 5;
-            if (p.weapon.type === 'Sidearm' && p.weapon.name !== 'Sheriff') power -= 10;
-            return sum + power;
-        }, 0);
+        const events = [];
+        const playerPositions = {};
+        const playerCurrentZones = {};
+        const aliveAttackers = [...activeAttackers];
+        const aliveDefenders = [...activeDefenders];
+        const playerMarkers = {}; // Track all players for events
 
-        const defenderPower = activeDefenders.reduce((sum, p) => {
-            let power = p.getOverallRating();
-            if (p.weapon.type === 'Rifle' || p.weapon.type === 'Sniper') power += 5;
-            if (p.weapon.type === 'Sidearm' && p.weapon.name !== 'Sheriff') power -= 10;
-            return sum + power;
-        }, 0);
-        
-        // Base win chance
-        const totalPower = attackerPower + defenderPower;
-        let winChance = attackerPower / (totalPower || 1);
-        
-        // --- Apply Strategy Bonuses ---
-        const atkStrat = this.strategies[this.attackers.id] || { playstyle: 'balanced', focus: 'standard' };
-        const defStrat = this.strategies[this.defenders.id] || { playstyle: 'balanced', focus: 'standard' };
-
-        // 1. Playstyle Bonuses
-        if (atkStrat.playstyle === 'aggressive') {
-            winChance += 0.05;
-            if (Math.random() < 0.4) this.logs.push(`${this.attackers.name} is pushing aggressively, looking to overwhelm the site!`);
-        }
-        if (defStrat.playstyle === 'aggressive') {
-            winChance -= 0.05;
-            if (Math.random() < 0.4) this.logs.push(`${this.defenders.name} is playing for high-risk picks to disrupt the attack.`);
-        }
-        if (atkStrat.playstyle === 'defensive') {
-            winChance -= 0.05;
-            if (Math.random() < 0.4) this.logs.push(`${this.attackers.name} is playing slow and methodical, baiting out utility.`);
-        }
-        if (defStrat.playstyle === 'defensive') {
-            winChance += 0.05;
-            if (Math.random() < 0.4) this.logs.push(`${this.defenders.name} is bunkered down on site with a disciplined setup.`);
-        }
-
-        // 2. Tactical Focus Bonuses
-        if (atkStrat.focus === 'entry') {
-            winChance += 0.03;
-            if (Math.random() < 0.35) this.logs.push(`${this.attackers.name} executed a coordinated fast site hit!`);
-        }
-        if (defStrat.focus === 'map-control') {
-            winChance += 0.03;
-            if (Math.random() < 0.35) this.logs.push(`${this.defenders.name} has superior map info, predicting the rotation.`);
-        }
-
-        // 3. Tactical Variance
-        if (atkStrat.playstyle === 'tactical' || defStrat.playstyle === 'tactical') {
-            const variance = (Math.random() - 0.5) * 0.1; // +/- 5% random swing
-            winChance += variance;
-            if (Math.abs(variance) > 0.02) this.logs.push("Strategic mid-round adjustments are shifting the momentum.");
-        }
-
-        // Advantage to defense (typical in Valorant)
-        winChance -= 0.02; 
-        
-        // Clamp win chance
-        winChance = Math.max(0.1, Math.min(0.9, winChance));
-        
-        const attackerWins = Math.random() < winChance;
-        const winner = attackerWins ? this.attackers : this.defenders;
-        const loser = attackerWins ? this.defenders : this.attackers;
-        const activeWinnerPlayers = attackerWins ? activeAttackers : activeDefenders;
-        const activeLoserPlayers = attackerWins ? activeDefenders : activeAttackers;
-        
-        winner.score++;
-
-        // --- Economy Post-Round ---
-        this.updateEconomy(activeWinnerPlayers, activeLoserPlayers, attackerWins);
-        
-        const log = `Round ${this.roundNumber}: ${winner.name} won against ${loser.name}`;
-        this.logs.push(log);
-        
-        // --- Realistic Stat Simulation ---
-        // Playstyle affects death counts
-        let baseLoserDeaths = Math.random() < 0.7 ? 5 : 4;
-        let baseWinnerDeaths = Math.floor(Math.random() * 5);
-
-        // --- Apply Strategy Stat Modifiers ---
-        // 1. Aggressive playstyle increases kill/death volume for both sides
-        if (atkStrat.playstyle === 'aggressive' || defStrat.playstyle === 'aggressive') {
-            if (Math.random() < 0.6) baseWinnerDeaths = Math.min(4, baseWinnerDeaths + 1);
-            if (Math.random() < 0.3 && baseLoserDeaths < 5) baseLoserDeaths++;
-        }
-        
-        // 2. Defensive playstyle reduces casualties (more survivors)
-        if (atkStrat.playstyle === 'defensive' || defStrat.playstyle === 'defensive') {
-            if (Math.random() < 0.4) baseWinnerDeaths = Math.max(0, baseWinnerDeaths - 1);
-            if (Math.random() < 0.2) baseLoserDeaths = Math.max(3, baseLoserDeaths - 1);
-        }
-
-        const loserDeathsCount = baseLoserDeaths;
-        const winnerDeathsCount = baseWinnerDeaths;
-
-        const simulateDeath = (victimTeam, killerTeam) => {
-            if (!victimTeam || victimTeam.length === 0 || !killerTeam || killerTeam.length === 0) return;
-            
-            const victim = victimTeam[Math.floor(Math.random() * victimTeam.length)];
-            
-            // Weight killer selection by overall rating AND strategy focus
-            const teamId = killerTeam[0].teamId;
-            const strat = this.strategies[teamId] || { focus: 'standard' };
-
-            const totalKillerPower = killerTeam.reduce((sum, p) => {
-                let weight = p.overall;
-                // Focus: Entry Fraggers get more kills in entry rounds or aggressive sets
-                if (strat.focus === 'entry' && p.role === 'Duelist') weight *= 1.2;
-                // Focus: Map Control/Retake gives more weight to Sentinels/Controllers
-                if (strat.focus === 'map-control' && (p.role === 'Sentinel' || p.role === 'Controller')) weight *= 1.1;
-                return sum + weight;
-            }, 0);
-
-            let r = Math.random() * totalKillerPower;
-            let killer = killerTeam[killerTeam.length - 1];
-            for (let p of killerTeam) {
-                let weight = p.overall;
-                if (strat.focus === 'entry' && p.role === 'Duelist') weight *= 1.2;
-                if (strat.focus === 'map-control' && (p.role === 'Sentinel' || p.role === 'Controller')) weight *= 1.1;
-                
-                r -= weight;
-                if (r <= 0) {
-                    killer = p;
-                    break;
-                }
-            }
-
-            if (victim && killer) {
-                // Update victim
-                victim.deaths++;
-                if (!victim.stats) victim.stats = { kills: 0, deaths: 0, assists: 0, hs: 0, damageDealt: 0 };
-                victim.stats.deaths++;
-
-                // Update killer
-                killer.kills++;
-                if (!killer.stats) killer.stats = { kills: 0, deaths: 0, assists: 0, hs: 0, damageDealt: 0 };
-                killer.stats.kills++;
-                
-                // HS chance based on aim
-                if (Math.random() < (killer.rating.aim / 250) + 0.1) {
-                    killer.stats.hs++;
-                }
-
-                // Killer damage (at least 150 for the kill)
-                killer.stats.damageDealt += 150 + Math.floor(Math.random() * 50);
-
-                // Optional assist
-                const assistCandidate = killerTeam.filter(p => p.id !== killer.id);
-                if (assistCandidate.length > 0 && Math.random() < 0.35) {
-                    const assister = assistCandidate[Math.floor(Math.random() * assistCandidate.length)];
-                    assister.assists++;
-                    if (!assister.stats) assister.stats = { kills: 0, deaths: 0, assists: 0, hs: 0, damageDealt: 0 };
-                    assister.stats.assists++;
-                    // Assister damage
-                    assister.stats.damageDealt += 50 + Math.floor(Math.random() * 50);
-                }
-            }
-        };
-
-        // Simulate deaths for loser team (killed by winner team)
-        for (let i = 0; i < loserDeathsCount; i++) {
-            simulateDeath(activeLoserPlayers, activeWinnerPlayers);
-        }
-
-        // Simulate deaths for winner team (killed by loser team)
-        for (let i = 0; i < winnerDeathsCount; i++) {
-            simulateDeath(activeWinnerPlayers, activeLoserPlayers);
-        }
-
-        // Add some "chip damage" for everyone else who didn't get a kill/assist
-        [...activeWinnerPlayers, ...activeLoserPlayers].forEach(p => {
-            if (!p.stats) p.stats = { kills: 0, deaths: 0, assists: 0, hs: 0, damageDealt: 0 };
-            p.stats.damageDealt += Math.floor(Math.random() * 40);
+        // Initialize positions
+        [...activeAttackers, ...activeDefenders].forEach((p, idx) => {
+            const teamSide = p.teamId === this.attackers.id ? 'attack' : 'defense';
+            const spawnZone = teamSide === 'attack' ? 'Attack Spawn' : 'Defense Spawn';
+            playerPositions[p.id] = this.getRandomPos(spawnZone, idx % 5, teamSide);
+            playerCurrentZones[p.id] = spawnZone;
         });
         
+        events.push({
+            type: 'initial_positions',
+            positions: { ...playerPositions },
+            time: 0
+        });
+
+        // Set targets for movement
+        const zones = Object.keys(MAP_COORDINATES[this.mapName] || MAP_COORDINATES['Ascent']).filter(k => k !== 'paths');
+        const sites = zones.filter(z => z.includes('Site') || z === 'Mid');
+        const playerTargets = {};
+        [...activeAttackers, ...activeDefenders].forEach(p => {
+            playerTargets[p.id] = sites[Math.floor(Math.random() * sites.length)];
+        });
+
+        let currentTime = 5;
+        
+        // Simulation loop: continues until one team is eliminated
+        while (aliveAttackers.length > 0 && aliveDefenders.length > 0) {
+            // 1. Movement Step
+            const movementSnapshot = {};
+            [...aliveAttackers, ...aliveDefenders].forEach((p, idx) => {
+                const teamSide = p.teamId === this.attackers.id ? 'attack' : 'defense';
+                const currentZone = playerCurrentZones[p.id];
+                const finalTarget = playerTargets[p.id];
+                const route = this.getRoute(currentZone, finalTarget);
+                const nextStepZone = route[0];
+                const currentPos = playerPositions[p.id];
+                const targetPos = this.getRandomPos(nextStepZone, idx % 5, teamSide);
+                
+                const newPos = {
+                    x: currentPos.x + (targetPos.x - currentPos.x) * 0.3,
+                    y: currentPos.y + (targetPos.y - currentPos.y) * 0.3
+                };
+                
+                const dist = Math.sqrt(Math.pow(newPos.x - targetPos.x, 2) + Math.pow(newPos.y - targetPos.y, 2));
+                if (dist < 8) playerCurrentZones[p.id] = nextStepZone;
+
+                playerPositions[p.id] = newPos;
+                movementSnapshot[p.id] = newPos;
+            });
+
+            events.push({
+                type: 'move',
+                positions: { ...movementSnapshot },
+                time: currentTime++
+            });
+
+            // 2. Combat Step: Check for clashes
+            // Clash chance increases as players get closer to objectives or each other
+            if (Math.random() < 0.4) {
+                const attacker = aliveAttackers[Math.floor(Math.random() * aliveAttackers.length)];
+                const defender = aliveDefenders[Math.floor(Math.random() * aliveDefenders.length)];
+                
+                // Calculate win probability for attacker in this specific duel
+                const atkPower = attacker.overall + (attacker.weapon.type === 'Rifle' ? 5 : 0);
+                const defPower = defender.overall + (defender.weapon.type === 'Rifle' ? 5 : 0);
+                const atkWinProb = atkPower / (atkPower + defPower);
+                
+                const attackerWinsDuel = Math.random() < atkWinProb;
+                const killer = attackerWinsDuel ? attacker : defender;
+                const victim = attackerWinsDuel ? defender : attacker;
+                const victimTeam = attackerWinsDuel ? aliveDefenders : aliveAttackers;
+                
+                // Remove victim from alive players (they only have 1 life)
+                const victimIdx = victimTeam.findIndex(p => p.id === victim.id);
+                victimTeam.splice(victimIdx, 1);
+                
+                // Update stats
+                victim.stats.deaths++;
+                killer.stats.kills++;
+                const isHS = Math.random() < (killer.rating.aim / 250) + 0.1;
+                if (isHS) killer.stats.hs++;
+                killer.stats.damageDealt += 150;
+
+                // Record kill event
+                events.push({
+                    type: 'kill',
+                    killer: { name: killer.name, teamId: killer.teamId, role: killer.role, id: killer.id },
+                    victim: { name: victim.name, teamId: victim.teamId, role: victim.role, id: victim.id },
+                    weapon: killer.weapon.name,
+                    hs: isHS,
+                    position: playerPositions[victim.id],
+                    time: currentTime++
+                });
+            }
+            
+            // Safety break to prevent infinite loops if something goes wrong
+            if (currentTime > 100) break;
+        }
+
+        const winner = aliveAttackers.length > 0 ? this.attackers : this.defenders;
+        const loser = winner === this.attackers ? this.defenders : this.attackers;
+        winner.score++;
+
+        // Economy updates
+        this.updateEconomy(
+            winner === this.attackers ? activeAttackers : activeDefenders,
+            winner === this.attackers ? activeDefenders : activeAttackers,
+            winner === this.attackers
+        );
+
+        const log = `Round ${this.roundNumber}: ${winner.name} won by eliminating all enemies.`;
+        this.logs.push(log);
+
         return {
             winner: winner,
-            logs: [log]
+            logs: [log],
+            events: events
         };
     }
 }
 
 export class MatchSimulator {
-    constructor(team1, team2, logs, strategies = {}) {
+    constructor(team1, team2, logs, strategies = {}, mapName = 'Ascent') {
         this.team1 = team1;
         this.team2 = team2;
         this.logs = logs || [];
         this.strategies = strategies; // { team1Id: strategy, team2Id: strategy }
+        this.mapName = mapName;
     }
 
     isMatchFinished() {
@@ -710,7 +891,8 @@ export class MatchSimulator {
                 this.team1.side === 'defense' ? this.team1 : this.team2,
                 roundNum,
                 this.logs,
-                this.strategies
+                this.strategies,
+                this.mapName
             );
             const roundResult = roundSim.simulateRound();
             

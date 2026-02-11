@@ -1,14 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { teams, teamLogos } from '../teams.js';
 import { ROLES, Player, PlayerRating } from '../simulation.js';
-import { generatePlayer } from '../players.js';
+import { generatePlayer, nationalities } from '../players.js';
 import { saveCareer } from '../career_local_storage.jsx';
 import { hireFreeAgentForTeam } from '../ai_manager.js';
+import { getFlagUrl } from '../utils/countryCodes.js';
 
 const PlayersHub = ({ activeSave, setActiveSave }) => {
     const [freeAgents, setFreeAgents] = useState([]);
     const [otherPlayers, setOtherPlayers] = useState([]);
-    const [selectedRegion, setSelectedRegion] = useState('All');
+    const [selectedNationality, setSelectedNationality] = useState('All');
+    const [selectedVctRegion, setSelectedVctRegion] = useState('All');
     const [selectedRole, setSelectedRole] = useState('All');
     const [showCreateForm, setShowCreateForm] = useState(false);
     
@@ -17,7 +19,7 @@ const PlayersHub = ({ activeSave, setActiveSave }) => {
         role: 'Duelist',
         nationality: 'USA',
         age: 18,
-        region: 'North America'
+        region: 'Americas'
     });
 
     const [searchTerm, setSearchTerm] = useState('');
@@ -29,8 +31,12 @@ const PlayersHub = ({ activeSave, setActiveSave }) => {
         const playerTeamId = activeSave.teamId ? String(activeSave.teamId) : null;
         const playerTeamName = activeSave.team ? String(activeSave.team) : null;
         
+        const isInvalid = (v) => !v || v === 'null' || v === 'undefined';
+        const normalize = (n) => String(n || '').toLowerCase().trim();
+
         // Match by ID/Name/Gamertag for your team to avoid duplicates in budget calculation
-        const isUserTeam = (playerTeamId && pTeamId === playerTeamId) || (playerTeamName && pTeamName === playerTeamName);
+        const isUserTeam = (!isInvalid(playerTeamId) && !isInvalid(pTeamId) && pTeamId === playerTeamId) || 
+                          (!isInvalid(playerTeamName) && !isInvalid(pTeamName) && normalize(pTeamName) === normalize(playerTeamName));
         
         if (isUserTeam) {
             return acc + (p.marketValue || 50000);
@@ -44,6 +50,9 @@ const PlayersHub = ({ activeSave, setActiveSave }) => {
     const [showOfferModal, setShowOfferModal] = useState(false);
     const [selectedPlayerForOffer, setSelectedPlayerForOffer] = useState(null);
     const [offerSalary, setOfferSalary] = useState(50000);
+    
+    // Detailed View State
+    const [expandedPlayerId, setExpandedPlayerId] = useState(null);
     
     useEffect(() => {
         if (activeSave && Array.isArray(activeSave.players)) {
@@ -85,14 +94,18 @@ const PlayersHub = ({ activeSave, setActiveSave }) => {
                 const playerTeamId = activeSave.teamId ? String(activeSave.teamId) : null;
                 const playerTeamName = activeSave.team ? String(activeSave.team) : null;
 
-                const isPlayerTeamId = playerTeamId && pTeamId === playerTeamId;
-                const isPlayerTeamName = playerTeamName && pTeamName === playerTeamName;
+                const isInvalid = (v) => !v || v === 'null' || v === 'undefined';
+                const normalize = (n) => String(n || '').toLowerCase().trim();
+
+                const isPlayerTeamId = !isInvalid(playerTeamId) && !isInvalid(pTeamId) && pTeamId === playerTeamId;
+                const isPlayerTeamName = !isInvalid(playerTeamName) && !isInvalid(pTeamName) && normalize(pTeamName) === normalize(playerTeamName);
                 
                 // CRITICAL: Also check by name/gamertag for real players who might have duplicate entries
                 const isUserTeamByIdentity = activeSave.players.some(p => {
                     const activeTId = activeSave.teamId ? String(activeSave.teamId) : null;
                     const pTId = p.teamId ? String(p.teamId) : null;
-                    const isOwnTeam = activeTId && pTId && pTId === activeTId;
+                    const isInvalid = (v) => !v || v === 'null' || v === 'undefined';
+                    const isOwnTeam = !isInvalid(activeTId) && !isInvalid(pTId) && pTId === activeTId;
                     if (!isOwnTeam) return false;
                     
                     return p.id === player.id || 
@@ -112,9 +125,34 @@ const PlayersHub = ({ activeSave, setActiveSave }) => {
             let filteredFreeAgents = [...currentFreeAgents];
             let filteredOtherPlayers = [...currentOtherPlayers];
 
-            if (selectedRegion !== 'All') {
-                filteredFreeAgents = filteredFreeAgents.filter(player => player && player.nationality === selectedRegion);
-                filteredOtherPlayers = filteredOtherPlayers.filter(player => player && player.nationality === selectedRegion);
+            // Filter by VCT Region
+            if (selectedVctRegion !== 'All') {
+                const isPlayerInVctRegion = (player) => {
+                    if (!player) return false;
+                    
+                    // If player is on a team, use team's region
+                    if (player.teamId) {
+                        const team = teams.find(t => String(t.id) === String(player.teamId));
+                        if (team && team.region === selectedVctRegion) return true;
+                    }
+                    
+                    // Otherwise check nationality mapping
+                    for (const [region, nats] of Object.entries(nationalities)) {
+                        if (region === selectedVctRegion && nats.includes(player.nationality)) {
+                            return true;
+                        }
+                    }
+                    return false;
+                };
+
+                filteredFreeAgents = filteredFreeAgents.filter(isPlayerInVctRegion);
+                filteredOtherPlayers = filteredOtherPlayers.filter(isPlayerInVctRegion);
+            }
+
+            // Filter by Nationality
+            if (selectedNationality !== 'All') {
+                filteredFreeAgents = filteredFreeAgents.filter(player => player && player.nationality === selectedNationality);
+                filteredOtherPlayers = filteredOtherPlayers.filter(player => player && player.nationality === selectedNationality);
             }
 
             if (selectedRole !== 'All') {
@@ -135,7 +173,7 @@ const PlayersHub = ({ activeSave, setActiveSave }) => {
             setFreeAgents(filteredFreeAgents);
             setOtherPlayers(filteredOtherPlayers);
         }
-    }, [activeSave, selectedRegion, selectedRole, searchTerm]);
+    }, [activeSave, selectedNationality, selectedVctRegion, selectedRole, searchTerm]);
 
     const handleSignPlayer = (player) => {
         if (!activeSave || !player) return;
@@ -158,7 +196,8 @@ const PlayersHub = ({ activeSave, setActiveSave }) => {
             const myTeamPlayers = activeSave.players.filter(p => {
                 const activeTeamId = activeSave.teamId ? String(activeSave.teamId) : null;
                 const pTeamId = p.teamId ? String(p.teamId) : null;
-                return activeTeamId && pTeamId && pTeamId === activeTeamId;
+                const isInvalid = (v) => !v || v === 'null' || v === 'undefined';
+                return !isInvalid(activeTeamId) && !isInvalid(pTeamId) && pTeamId === activeTeamId;
             });
 
             const newInboxMessages = [];
@@ -317,25 +356,129 @@ const PlayersHub = ({ activeSave, setActiveSave }) => {
         return 'rating-poor';
     };
 
-    const StatBar = ({ label, value }) => {
-        const ratingClass = getRatingClass(value);
+    const PlayerDetailsDropdown = ({ player }) => {
+        if (!player) return null;
+
+        const ratings = player.rating || player.ratings;
+
+        // Check if player is on the user's team
+        const isOnUserTeam = activeSave && String(player.teamId) === String(activeSave.teamId);
+
+        const handleSetIGL = () => {
+            if (!activeSave) return;
+            
+            const updatedPlayers = activeSave.players.map(p => {
+                if (String(p.teamId) === String(activeSave.teamId)) {
+                    return { ...p, isIGL: p.id === player.id };
+                }
+                return p;
+            });
+            
+            const updatedSave = { ...activeSave, players: updatedPlayers };
+            setActiveSave(updatedSave);
+            saveCareer(updatedSave);
+        };
+
+        const stats = [
+            { label: 'Aim', value: ratings?.aim || 50 },
+            { label: 'Movement', value: ratings?.movement || 50 },
+            { label: 'Game Sense', value: ratings?.gameSense || 50 },
+            { label: 'Clutch', value: ratings?.clutch || 50 },
+            { label: 'Aggression', value: ratings?.aggression || 50 },
+            { label: 'Utility', value: ratings?.utility || 50 },
+            { label: 'Mental', value: ratings?.mental || 50 },
+            { label: 'Teamwork', value: ratings?.teamwork || 50 },
+            { label: 'Consistency', value: ratings?.consistency || 50 },
+        ];
+
+        const overall = typeof player.overall === 'number' ? player.overall : (function() {
+            if (!ratings) return 0;
+            const values = stats.map(s => Number(s.value));
+            const sum = values.reduce((acc, curr) => acc + curr, 0);
+            return Math.round(sum / values.length);
+        })();
+
+        const team = player.teamId ? teams.find(t => String(t.id) === String(player.teamId)) : null;
+
         return (
-            <div className="stat-bar-container">
-                <div className="stat-label">
-                    <span>{label}</span>
-                    <span className={`text-${ratingClass}`}>{Math.round(value)}</span>
-                </div>
-                <div className="stat-bar-bg">
-                    <div className={`stat-bar-fill ${ratingClass}`} style={{ width: `${Math.min(100, Math.max(0, value))}%` }}></div>
+            <div className="player-details-dropdown-content">
+                <div className="dropdown-grid">
+                    <div className="dropdown-section">
+                        <h4>Performance Ratings</h4>
+                        <div className="dropdown-stats-grid">
+                            {stats.map(stat => (
+                                <div key={stat.label} className="dropdown-stat-item">
+                                    <span className="stat-label">{stat.label}</span>
+                                    <div className="stat-bar-bg h-2 flex-1 bg-white/5 rounded-full overflow-hidden">
+                                        <div 
+                                            className={`stat-bar-fill ${getRatingClass(stat.value)} h-full transition-all duration-700`} 
+                                            style={{ width: `${stat.value}%` }}
+                                        ></div>
+                                    </div>
+                                    <span className={`stat-value text-${getRatingClass(stat.value)} w-8 text-right`}>{stat.value}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="dropdown-section">
+                        <h4>Player Profile</h4>
+                        <div className="dropdown-profile-info">
+                            <div className="profile-row">
+                                <span>Status:</span>
+                                <strong>{team ? team.name : 'Free Agent'}</strong>
+                            </div>
+                            <div className="profile-row">
+                                <span>Experience:</span>
+                                <strong>{player.experience || 'Rookie'}</strong>
+                            </div>
+                            
+                            <div className="profile-row">
+                                <span>Potential:</span>
+                                <strong className={getRatingClass(player.potential)}>{player.potential || 'N/A'}</strong>
+                            </div>
+                            {isOnUserTeam && (
+                                <div className="profile-row mt-4">
+                                    <button 
+                                        onClick={handleSetIGL}
+                                        className={`w-full py-2 px-4 rounded font-bold transition-all ${
+                                            player.isIGL 
+                                            ? 'bg-yellow-500 text-black' 
+                                            : 'bg-white/10 text-white hover:bg-white/20'
+                                        }`}
+                                    >
+                                        {player.isIGL ? '★ Team Leader (IGL)' : 'Set as Team Leader'}
+                                    </button>
+                                </div>
+                            )}
+                            <div className="dropdown-description">
+                                <div className="flex items-center gap-2 mb-2">
+                                    {getFlagUrl(player.nationality) && (
+                                        <img 
+                                            src={getFlagUrl(player.nationality)} 
+                                            alt="" 
+                                            className="flag-icon flag-icon-large"
+                                            onError={(e) => e.target.style.display = 'none'}
+                                        />
+                                    )}
+                                    <span className="text-gray-400 font-bold">{player.nationality}</span>
+                                </div>
+                                <p>
+                                    {player.name} is a {player.role} from {player.nationality}. 
+                                    {overall >= 80 ? " Top-tier talent." : 
+                                     overall >= 70 ? " Solid professional." : 
+                                     " Developing talent."}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         );
     };
 
-    const PlayerCard = ({ player, isAcquirable = true }) => {
+    const PlayerRow = ({ player, isAcquirable = true }) => {
         const ratings = player.rating || player.ratings;
-        
-        // Use the getter if available, otherwise calculate
         const overall = typeof player.overall === 'number' ? player.overall : (function() {
             if (!ratings) return 0;
             const stats = [
@@ -344,71 +487,133 @@ const PlayersHub = ({ activeSave, setActiveSave }) => {
                 ratings.mental, ratings.teamwork, ratings.consistency
             ];
             const sum = stats.reduce((acc, curr) => acc + (Number(curr) || 50), 0);
-            const avg = sum / 9;
-            return Math.round(avg);
+            return Math.round(sum / 9);
         })();
 
         const ratingClass = getRatingClass(overall);
-        
         const team = player.teamId ? teams.find(t => String(t.id) === String(player.teamId)) : null;
+        const isPending = activeSave.pendingOffers?.some(o => o.playerId === player.id);
+        const isExpanded = expandedPlayerId === player.id;
 
         return (
-            <div className={`player-card-hub ${ratingClass}`} key={player.id || player.name}>
-                <div className="player-card-header">
-                    <div className="player-main-info">
-                        <h4>{player.name || player.gamertag}</h4>
-                        <div className="player-tags">
-                            <span className="player-role-tag">{player.role}</span>
-                            {team && <span className="player-team-tag">{team.name}</span>}
+            <React.Fragment key={player.id || player.name}>
+                <tr 
+                    className={`player-list-row ${ratingClass} ${isExpanded ? 'is-expanded' : ''} cursor-pointer hover:bg-white/5 transition-colors`} 
+                    onClick={() => setExpandedPlayerId(isExpanded ? null : player.id)}
+                >
+                    <td className="player-list-name">
+                        <div className="flex items-center gap-2">
+                            <span className={`expand-icon ${isExpanded ? 'rotated' : ''}`}>▶</span>
+                            <div>
+                                <div className="flex items-center gap-2">
+                                    <strong>{player.name || player.gamertag}</strong>
+                                    {player.isIGL && (
+                                        <span className="bg-yellow-500 text-black text-[10px] px-1 rounded font-black leading-tight">IGL</span>
+                                    )}
+                                </div>
+                                <span className="player-list-role">{player.role}</span>
+                            </div>
                         </div>
-                    </div>
-                    <div className={`player-overall-circle border-${ratingClass} text-${ratingClass}`}>
-                        {overall}
-                    </div>
-                </div>
-                
-                <div className="player-meta">
-                    <div className="meta-item">
-                        <span className="meta-label">Nationality:</span>
-                        <span className="meta-value">{player.nationality || "Unknown"}</span>
-                    </div>
-                    <div className="meta-item">
-                        <span className="meta-label">Age:</span>
-                        <span className="meta-value">{player.age || 18}</span>
-                    </div>
-                    <div className="meta-item">
-                        <span className="meta-label">Salary:</span>
-                        <span className="meta-value">${(player.marketValue || 50000).toLocaleString()}</span>
-                    </div>
-                </div>
-
-                <div className="player-stats-grid">
-                    <StatBar label="Aim" value={ratings?.aim || 50} />
-                    <StatBar label="Movement" value={ratings?.movement || 50} />
-                    <StatBar label="Game Sense" value={ratings?.gameSense || 50} />
-                    <StatBar label="Utility" value={ratings?.utility || 50} />
-                    <StatBar label="Clutch" value={ratings?.clutch || 50} />
-                    <StatBar label="Aggression" value={ratings?.aggression || 50} />
-                    <StatBar label="Mental" value={ratings?.mental || 50} />
-                    <StatBar label="Teamwork" value={ratings?.teamwork || 50} />
-                </div>
-
-                <div className="player-card-footer">
-                    {isAcquirable && (
-                        <button 
-                            className={`sign-player-btn ${activeSave.pendingOffers?.some(o => o.playerId === player.id) ? 'pending' : ''}`}
-                            onClick={() => handleSignPlayer(player)}
-                            disabled={activeSave.pendingOffers?.some(o => o.playerId === player.id)}
-                        >
-                            {activeSave.pendingOffers?.some(o => o.playerId === player.id) 
-                                ? 'Offer Pending' 
-                                : (player.teamId && player.teamId !== 'null' ? 'Contract Offer' : 'Sign Player')}
-                        </button>
-                    )}
-                </div>
-            </div>
+                    </td>
+                    <td>
+                        <div className="flex items-center gap-2">
+                            {getFlagUrl(player.nationality) && (
+                                <img 
+                                    src={getFlagUrl(player.nationality)} 
+                                    alt="" 
+                                    className="flag-icon"
+                                    onError={(e) => e.target.style.display = 'none'}
+                                />
+                            )}
+                            <span>{player.nationality || "Unknown"}</span>
+                        </div>
+                    </td>
+                    <td>{player.age || 18}</td>
+                    <td>
+                          {team ? (
+                               <div className="flex items-center gap-2">
+                                   <div className="flex-shrink-0 w-6 flex justify-center items-center">
+                                       {teamLogos[team.name] && <img src={teamLogos[team.name]} alt="" className="table-team-logo" />}
+                                   </div>
+                                   <span className="text-xs uppercase font-bold text-gray-400 tracking-wider leading-none">{team.name}</span>
+                               </div>
+                           ) : (
+                              <span className="text-xs uppercase font-bold text-gray-600 italic">Free Agent</span>
+                          )}
+                      </td>
+                    <td className="player-list-overall">
+                        <div className="flex items-center gap-3">
+                            <span className={`font-black text-lg w-6 text-center text-${ratingClass}`}>{overall}</span>
+                            <div className="flex-1 h-1.5 bg-white/5 rounded-full overflow-hidden min-w-[60px]">
+                                <div 
+                                    className={`h-full transition-all duration-500 stat-bar-fill ${ratingClass}`} 
+                                    style={{ width: `${overall}%` }}
+                                ></div>
+                            </div>
+                        </div>
+                    </td>
+                    <td className="player-list-salary">
+                        ${(player.marketValue || 50000).toLocaleString()}
+                    </td>
+                    <td className="player-list-action" onClick={e => e.stopPropagation()}>
+                        {isAcquirable && (
+                            <button 
+                                className={`sign-player-btn ${isPending ? 'pending' : ''}`}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleSignPlayer(player);
+                                }}
+                                disabled={isPending}
+                            >
+                                {isPending 
+                                    ? 'Pending' 
+                                    : (player.teamId && player.teamId !== 'null' ? 'Offer' : 'Sign')}
+                            </button>
+                        )}
+                    </td>
+                </tr>
+                {isExpanded && (
+                    <tr className="player-details-row">
+                        <td colSpan="7">
+                            <PlayerDetailsDropdown player={player} />
+                        </td>
+                    </tr>
+                )}
+            </React.Fragment>
         );
     };
+
+    const PlayerTable = ({ players, title, isAcquirable = true }) => (
+        <div className="hub-section">
+            <h3>{title} <span className="text-sm opacity-50 ml-2">({players.length})</span></h3>
+            <div className="player-list-container">
+                <table className="player-list-table">
+                    <thead>
+                        <tr>
+                            <th>Player</th>
+                            <th>Nationality</th>
+                            <th>Age</th>
+                            <th>Team</th>
+                            <th>OVR</th>
+                            <th>Salary</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {players.length > 0 ? (
+                            players.map(player => (
+                                <PlayerRow key={player.id} player={player} isAcquirable={isAcquirable} />
+                            ))
+                        ) : (
+                            <tr>
+                                <td colSpan="7" className="no-data">No players found matching your filters.</td>
+                            </tr>
+                        )}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    );
 
     return (
         <div className="players-container">
@@ -453,10 +658,9 @@ const PlayersHub = ({ activeSave, setActiveSave }) => {
                             <div className="form-group">
                                 <label>Region</label>
                                 <select value={newPlayer.region} onChange={(e) => setNewPlayer({...newPlayer, region: e.target.value})}>
-                                    <option key="North America" value="North America">North America</option>
+                                    <option key="Americas" value="Americas">Americas</option>
                                     <option key="EMEA" value="EMEA">EMEA</option>
                                     <option key="Pacific" value="Pacific">Pacific</option>
-                                    <option key="Americas" value="Americas">Americas</option>
                                     <option key="China" value="China">China</option>
                                 </select>
                             </div>
@@ -498,9 +702,19 @@ const PlayersHub = ({ activeSave, setActiveSave }) => {
                 </div>
 
                 <div className="filter-group">
+                    <label>VCT Region:</label>
+                    <select value={selectedVctRegion} onChange={(e) => setSelectedVctRegion(e.target.value)}>
+                        <option key="all-vct" value="All">All Regions</option>
+                        {Object.keys(nationalities).sort().map(region => (
+                            <option key={region} value={region}>{region}</option>
+                        ))}
+                    </select>
+                </div>
+
+                <div className="filter-group">
                     <label>Nationality:</label>
-                    <select value={selectedRegion} onChange={(e) => setSelectedRegion(e.target.value)}>
-                        <option key="all-nat" value="All">All Regions</option>
+                    <select value={selectedNationality} onChange={(e) => setSelectedNationality(e.target.value)}>
+                        <option key="all-nat" value="All">All Countries</option>
                         {allNationalities.filter(nat => typeof nat === 'string').sort().map(nat => (
                             <option key={nat} value={nat}>{nat}</option>
                         ))}
@@ -516,86 +730,46 @@ const PlayersHub = ({ activeSave, setActiveSave }) => {
                 </div>
             </div>
 
-            <section className="hub-section">
-                <h3>Available Free Agents ({freeAgents.length})</h3>
-                <div className="player-cards-grid">
-                    {freeAgents.length > 0 ? (
-                        freeAgents.map((player, idx) => <PlayerCard key={player.id || `fa-${idx}`} player={player} />)
-                    ) : (
-                        <p className="no-data">No free agents found. (Total players in save: {activeSave?.players?.length || 0})</p>
-                    )}
-                </div>
-            </section>
+            <PlayerTable 
+                players={freeAgents} 
+                title="Available Free Agents" 
+            />
 
-            <section className="hub-section">
-                <h3>Players from Other Teams ({otherPlayers.length})</h3>
-                {(() => {
-                    const grouped = otherPlayers.reduce((acc, player) => {
-                        const tId = String(player.teamId);
-                        if (!acc[tId]) acc[tId] = [];
-                        acc[tId].push(player);
-                        return acc;
-                    }, {});
-
-                    const teamIds = Object.keys(grouped).sort((a, b) => {
-                        const teamA = teams.find(t => String(t.id) === a);
-                        const teamB = teams.find(t => String(t.id) === b);
-                        return (teamA?.name || '').localeCompare(teamB?.name || '');
-                    });
-
-                    if (teamIds.length === 0) {
-                        return <p className="no-data">No other players found.</p>;
-                    }
-
-                    return teamIds.map(tId => {
-                        const team = teams.find(t => String(t.id) === tId);
-                        const teamPlayers = grouped[tId];
-                        const logo = teamLogos[team?.name] || 'assets/team_logos/default.png';
-
-                        return (
-                            <div key={tId} className="team-group-section">
-                                <div className="team-group-header">
-                                    <img src={logo} alt={team?.name} className="team-group-logo" />
-                                    <h4>{team?.name || 'Unknown Team'}</h4>
-                                    <span className="team-player-count">{teamPlayers.length} Players</span>
-                                </div>
-                                <div className="player-cards-grid">
-                                    {teamPlayers.map((player, idx) => (
-                                        <PlayerCard key={player.id || `other-${tId}-${idx}`} player={player} />
-                                    ))}
-                                </div>
-                            </div>
-                        );
-                    });
-                })()}
-            </section>
+            <PlayerTable 
+                players={otherPlayers} 
+                title="Players from Other Teams" 
+            />
 
             {/* Contract Offer Modal */}
             {showOfferModal && selectedPlayerForOffer && (
-                <div className="modal-overlay">
-                    <div className="modal-content contract-modal">
+                <div className="modal-overlay" onClick={() => setShowOfferModal(false)}>
+                    <div className="modal-content contract-modal" onClick={e => e.stopPropagation()}>
                         <h3>Offer Contract to {selectedPlayerForOffer.name}</h3>
                         <p className="modal-subtitle">Currently playing for {selectedPlayerForOffer.team}</p>
                         
                         <div className="offer-details">
                             <div className="detail-item">
-                                <span>Market Value:</span>
+                                <span>Market Value</span>
                                 <strong>${(selectedPlayerForOffer.marketValue || 50000).toLocaleString()}</strong>
                             </div>
-                            
-                            <div className="form-group">
-                                <label>Salary Offer ($):</label>
-                                <input 
-                                    type="number" 
-                                    value={offerSalary} 
-                                    onChange={(e) => setOfferSalary(e.target.value)}
-                                    min="50000"
-                                    step="1000"
-                                />
-                                <small>Players are more likely to accept higher offers than their current value.</small>
+                            <div className="detail-item">
+                                <span>Your Budget</span>
+                                <strong>${remainingBudget.toLocaleString()}</strong>
                             </div>
                         </div>
-                        
+
+                        <div className="form-group">
+                            <label>Weekly Salary Offer</label>
+                            <input 
+                                type="number" 
+                                value={offerSalary}
+                                onChange={(e) => setOfferSalary(e.target.value)}
+                                min="1000"
+                                step="1000"
+                            />
+                            <small>Higher offers have a better chance of being accepted by players on other teams.</small>
+                        </div>
+
                         <div className="modal-actions">
                             <button className="cancel-btn" onClick={() => setShowOfferModal(false)}>Cancel</button>
                             <button className="submit-offer-btn" onClick={submitContractOffer}>Send Offer</button>

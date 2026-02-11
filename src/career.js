@@ -1,8 +1,9 @@
 import { teams, teamLogos } from './teams.js';
 import { loadCareer, saveCareer, getKickoffState } from './career_local_storage.jsx';
-import { renderKickoff } from './kickoff.jsx';
+import { renderKickoff } from './tournaments/kickoff/kickoff.jsx';
 import { initializeGameData } from './game_data.js';
 import { getTeamsWithPlayers } from './players.js';
+import { getFlagUrl } from './utils/countryCodes.js';
 
 const teamColors = {
   "100 Thieves": "#E4002B",
@@ -121,14 +122,16 @@ export function renderTeamRoster(providedSave = null) {
 
   // Use players from the active save
   const myTeamPlayers = activeSave.players.filter(p => {
+    if (!p) return false;
     const normalize = (n) => String(n || '').toLowerCase().trim();
+    const isInvalid = (v) => !v || v === 'null' || v === 'undefined';
     
     // Normalize comparison: check teamId (if present) OR team name
     const playerTeamId = p.teamId ? String(p.teamId) : null;
     const playerTeamNameNorm = normalize(p.team);
 
-    const matchesId = myTeamId && playerTeamId && playerTeamId === myTeamId;
-    const matchesName = myTeam && playerTeamNameNorm && playerTeamNameNorm === normalize(myTeam);
+    const matchesId = !isInvalid(myTeamId) && !isInvalid(playerTeamId) && playerTeamId === myTeamId;
+    const matchesName = !isInvalid(myTeam) && !isInvalid(playerTeamNameNorm) && playerTeamNameNorm === normalize(myTeam);
     const match = matchesId || matchesName;
     
     if (match) console.log("Found player for team:", p.name, "teamId:", p.teamId, "teamName:", p.team);
@@ -160,10 +163,28 @@ export function renderTeamRoster(providedSave = null) {
   }
 
   // Split into main roster and substitutes
-  // Main roster: top 5 by overall
-  // Substitutes: everyone else
-  const mainRoster = myTeamPlayers.slice(0, 5);
-  const substitutes = myTeamPlayers.slice(5);
+  // First, identify players who are explicitly marked as starters
+  let mainRoster = myTeamPlayers.filter(p => p.isStarter === true);
+  let otherPlayers = myTeamPlayers.filter(p => p.isStarter !== true);
+  
+  // Only auto-fill if NO starters are set at all (e.g. first time initialization)
+  if (mainRoster.length === 0 && myTeamPlayers.length > 0) {
+    console.log("No starters defined, auto-filling first 5 players...");
+    // Take the top rated players up to 5
+    const needed = Math.min(5, myTeamPlayers.length);
+    for (let i = 0; i < needed; i++) {
+      myTeamPlayers[i].isStarter = true;
+    }
+    
+    // Refresh the lists
+    mainRoster = myTeamPlayers.filter(p => p.isStarter === true);
+    otherPlayers = myTeamPlayers.filter(p => p.isStarter !== true);
+    
+    // Save this default state
+    saveCareer(activeSave);
+  }
+  
+  const substitutes = otherPlayers;
 
   function renderPlayerCard(player, isSub = false) {
     const overall = getOverall(player);
@@ -189,6 +210,7 @@ export function renderTeamRoster(providedSave = null) {
           <div class="player-main-info">
             <div class="player-name-row">
               <h4>${player.name}</h4>
+              ${player.isIGL ? '<span class="igl-badge" title="Team Leader (IGL)">★ IGL</span>' : ''}
               ${isSub ? '<span class="sub-tag">SUB</span>' : ''}
             </div>
             <div class="role-selector-container">
@@ -206,9 +228,14 @@ export function renderTeamRoster(providedSave = null) {
         </div>
 
         <div class="player-meta-info">
-          <span class="meta-item"><i class="flag-icon"></i> ${player.nationality || "Unknown"}</span>
-          <span class="meta-item">Age: ${player.age || "N/A"}</span>
-          <span class="meta-item value">Salary: ${marketValue}</span>
+          <div class="meta-section nationality">
+            ${getFlagUrl(player.nationality) ? `<img src="${getFlagUrl(player.nationality)}" class="flag-icon-main" alt="" onerror="this.style.display='none'">` : ''}
+            <span class="nationality-text">${player.nationality || "Unknown"}</span>
+          </div>
+          <div class="meta-section details">
+            <span class="meta-detail">Age: <strong>${player.age || "N/A"}</strong></span>
+            <span class="meta-detail salary">Salary: <strong>${marketValue}</strong></span>
+          </div>
         </div>
 
         <div class="player-stats-detailed">
@@ -259,6 +286,12 @@ export function renderTeamRoster(providedSave = null) {
         </div>
 
         <div class="player-actions">
+          <button class="btn-toggle-roster ${isSub ? 'to-starter' : 'to-sub'}" onclick="togglePlayerRosterStatus('${player.id}')">
+            ${isSub ? 'Set as Starter' : 'Move to Bench'}
+          </button>
+          <button class="btn-set-igl ${player.isIGL ? 'active' : ''}" onclick="changePlayerIGL('${player.id}')">
+            ${player.isIGL ? '★ Team Leader' : 'Set as IGL'}
+          </button>
           <button class="btn-release" onclick="releasePlayer('${player.id}')">Release Player</button>
           <button class="btn-edit" onclick="editPlayerAttributes('${player.id}')">Edit</button>
         </div>
@@ -297,7 +330,7 @@ export function renderTeamRoster(providedSave = null) {
     const activeSave = loadCareer();
     if (!activeSave) return;
 
-    const player = activeSave.players.find(p => p.id === playerId);
+    const player = activeSave.players.find(p => String(p.id) === String(playerId));
     if (!player || player.role === newRole) return;
 
     if (confirm(`Changing ${player.name}'s role from ${player.role} to ${newRole} will reduce their rating by 5 points. Continue?`)) {
@@ -317,7 +350,7 @@ export function renderTeamRoster(providedSave = null) {
       }
       
       // CRITICAL: Update the player in the main save object
-      const playerIndex = activeSave.players.findIndex(p => p.id === playerId);
+      const playerIndex = activeSave.players.findIndex(p => String(p.id) === String(playerId));
       if (playerIndex !== -1) {
           activeSave.players[playerIndex] = player;
       }
@@ -338,17 +371,58 @@ export function renderTeamRoster(providedSave = null) {
     }
   };
 
+  // Function to toggle between starter and bench
+  window.togglePlayerRosterStatus = function(playerId) {
+    const activeSave = loadCareer();
+    if (!activeSave) return;
+
+    // Use loose equality or convert both to string to ensure match
+    const playerIndex = activeSave.players.findIndex(p => String(p.id) === String(playerId));
+    if (playerIndex === -1) {
+      console.error("Player not found in save:", playerId);
+      return;
+    }
+
+    const player = activeSave.players[playerIndex];
+    
+    // Check team IDs carefully
+    const activeTeamId = activeSave.teamId ? String(activeSave.teamId) : null;
+    const playerTeamId = player.teamId ? String(player.teamId) : null;
+
+    const currentStarters = activeSave.players.filter(p => {
+      const pTeamId = p.teamId ? String(p.teamId) : null;
+      return pTeamId === activeTeamId && p.isStarter === true;
+    });
+
+    if (!player.isStarter && currentStarters.length >= 5) {
+      alert("You already have 5 players in the active roster. Move someone to the bench first!");
+      return;
+    }
+
+    // Toggle status
+    player.isStarter = !player.isStarter;
+    
+    // Update the array
+    activeSave.players[playerIndex] = player;
+    
+    saveCareer(activeSave);
+    console.log(`${player.name} is now a ${player.isStarter ? 'Starter' : 'Substitute'}.`);
+    
+    renderTeamRoster(activeSave);
+    window.dispatchEvent(new CustomEvent('careerUpdate', { detail: activeSave }));
+  };
+
   // Function to handle swapping players
   window.showSwapMenu = function(playerId) {
     const activeSave = loadCareer();
     if (!activeSave) return;
 
-    const playerToSwap = activeSave.players.find(p => p.id === playerId);
+    const playerToSwap = activeSave.players.find(p => String(p.id) === String(playerId));
     if (!playerToSwap) return;
 
     // Filter potential swap targets: Free Agents or players from Other Teams
     const otherPlayers = activeSave.players.filter(p => {
-        if (p.id === playerId) return false;
+        if (String(p.id) === String(playerId)) return false;
         
         const normalize = (n) => String(n || '').toLowerCase().trim();
         const activeTeamId = activeSave.teamId ? String(activeSave.teamId) : null;
@@ -388,8 +462,8 @@ export function renderTeamRoster(providedSave = null) {
     const targetPlayer = otherPlayers[idx];
     
     // Perform the swap
-    const playerToSwapIdx = activeSave.players.findIndex(p => p.id === playerToSwap.id);
-    const targetPlayerIdx = activeSave.players.findIndex(p => p.id === targetPlayer.id);
+    const playerToSwapIdx = activeSave.players.findIndex(p => String(p.id) === String(playerToSwap.id));
+    const targetPlayerIdx = activeSave.players.findIndex(p => String(p.id) === String(targetPlayer.id));
 
     if (playerToSwapIdx !== -1 && targetPlayerIdx !== -1) {
         // Swap team info
@@ -419,10 +493,11 @@ export function renderTeamRoster(providedSave = null) {
     if (confirm('Are you sure you want to release this player? They will become a free agent.')) {
       const activeSave = loadCareer();
       if (activeSave) {
-        const playerIndex = activeSave.players.findIndex(p => p.id === playerId);
+        const playerIndex = activeSave.players.findIndex(p => String(p.id) === String(playerId));
         if (playerIndex !== -1) {
           activeSave.players[playerIndex].teamId = null;
           activeSave.players[playerIndex].team = null;
+          activeSave.players[playerIndex].isIGL = false;
           activeSave.players[playerIndex].status = "free_agent";
           
           saveCareer(activeSave); // Save the updated career data
@@ -435,13 +510,35 @@ export function renderTeamRoster(providedSave = null) {
     }
   };
 
+  // Function to handle changing IGL
+  window.changePlayerIGL = function(playerId) {
+    const activeSave = loadCareer();
+    if (!activeSave) return;
+
+    const player = activeSave.players.find(p => String(p.id) === String(playerId));
+    if (!player) return;
+
+    // Set this player as IGL and remove IGL from others on the same team
+    activeSave.players.forEach(p => {
+      if (String(p.teamId) === String(activeSave.teamId)) {
+        p.isIGL = (String(p.id) === String(playerId));
+      }
+    });
+
+    saveCareer(activeSave);
+    console.log(`${player.name} set as Team Leader (IGL).`);
+    
+    renderTeamRoster(activeSave);
+    window.dispatchEvent(new CustomEvent('careerUpdate', { detail: activeSave }));
+  };
+
 function setupEditFunctionality() {
   // Function to handle editing player attributes
   window.editPlayerAttributes = function(playerId) {
     const activeSave = loadCareer();
     if (!activeSave) return;
 
-    const playerToEdit = activeSave.players.find(player => player.id === playerId);
+    const playerToEdit = activeSave.players.find(player => String(player.id) === String(playerId));
     if (!playerToEdit) return;
 
     // Populate the modal with player data
@@ -526,7 +623,7 @@ function setupEditFunctionality() {
       const activeSave = loadCareer();
       if (!activeSave) return;
 
-      const playerIndex = activeSave.players.findIndex(player => player.id === playerId);
+      const playerIndex = activeSave.players.findIndex(player => String(player.id) === String(playerId));
       if (playerIndex === -1) return;
 
       // Update player attributes from the form
@@ -885,8 +982,11 @@ function handleSimWeekClick() {
       renderOffseason();
       renderStandings();
       renderBracket();
+      const activeSave = loadCareer();
       const activeSaveId = localStorage.getItem('activeSaveId');
-      const st = getKickoffState(activeSaveId);
+      const playerTeamData = teams.find(t => String(t.id) === String(activeSave.teamId));
+      const playerRegion = playerTeamData ? playerTeamData.region : "Americas";
+      const st = getKickoffState(playerRegion, activeSaveId);
       renderKickoff(st);
 
       // Hide loading screen

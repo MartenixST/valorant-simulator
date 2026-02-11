@@ -1,6 +1,6 @@
 import { teams } from './teams.js';
 import { Player } from './simulation.js';
-import { generatePlayer } from './players.js';
+import { generatePlayer, ensureIglAssignment } from './players.js';
 
 /**
  * Handles AI roster changes for all teams except the player's team.
@@ -61,7 +61,12 @@ export function handleAiRosterChanges(activeSave) {
             // Release worst player
             const playerIndex = updatedPlayers.findIndex(p => p.id === worstPlayer.id);
             if (playerIndex !== -1) {
-                updatedPlayers[playerIndex] = { ...updatedPlayers[playerIndex], teamId: null, team: null };
+                updatedPlayers[playerIndex] = { 
+                    ...updatedPlayers[playerIndex], 
+                    teamId: null, 
+                    team: null,
+                    isIGL: false 
+                };
                 
                 // Hire a replacement
                 const hiredPlayer = hireFreeAgentForTeam(teamId, teamName, team.region, updatedPlayers);
@@ -72,6 +77,15 @@ export function handleAiRosterChanges(activeSave) {
                 }
             }
         }
+        
+        // CRITICAL: Ensure every team still has exactly one IGL after changes
+        // We need to pass the actual player objects from the updatedPlayers array
+        const finalRoster = updatedPlayers.filter(p => {
+            const pTeamId = p.teamId ? String(p.teamId) : null;
+            if (teamId && pTeamId) return pTeamId === teamId;
+            return p.team && p.team === teamName;
+        });
+        ensureIglAssignment(finalRoster);
     });
 
     return { updatedSave: { ...activeSave, players: updatedPlayers }, changes };

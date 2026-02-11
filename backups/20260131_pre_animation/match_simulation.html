@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Match Simulation</title>
+    <link rel="stylesheet" href="css/variables.css">
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/match_simulation.css">
+    <script src="src/match_simulation.js" type="module"></script>
+</head>
+<body>
+    <div class="container">
+        <!-- Scoreboard Header -->
+        <header class="scoreboard-container">
+            <div class="match-details">
+                <div class="team-info">
+                    <img id="team1-logo" src="" alt="Team 1 Logo">
+                    <h2 id="team1-name">TEAM 1</h2>
+                </div>
+
+                <div class="score-display">
+                    <div class="best-of-tag" id="best-of-display">BO3</div>
+                    <div class="score-numbers">
+                        <span id="score1">0</span> - <span id="score2">0</span>
+                    </div>
+                </div>
+
+                <div class="team-info">
+                    <img id="team2-logo" src="" alt="Team 2 Logo">
+                    <h2 id="team2-name">TEAM 2</h2>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- Map Selection (Visible during Veto) -->
+            <section class="card map-selection-container" id="map-selection-container">
+                <div class="card-header">
+                    <h3>Map Veto Phase</h3>
+                </div>
+                <div id="map-pool" class="map-pool"></div>
+                <div id="current-map-status" class="map-status">Waiting for veto...</div>
+            </section>
+
+            <!-- Active Map (Visible during Round Simulation) -->
+            <section id="current-map-display" style="display: none;">
+                <img id="current-map-image" src="" alt="Current Map">
+                <div class="map-overlay">
+                    <h3>Current Map: <span id="current-map-name"></span></h3>
+                </div>
+            </section>
+
+            <!-- Team Rosters & Active Players -->
+            <section class="simulation-ui" id="simulation-ui" style="display: none;">
+                <div class="team-player-selection">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><span id="t1-name-display"></span> Roster</h3>
+                        </div>
+                        <div id="team1-roster" class="player-roster"></div>
+                        <div class="card-header" style="margin-top: 15px;">
+                            <h3>Active Squad</h3>
+                        </div>
+                        <div id="team1-active-players" class="active-players"></div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><span id="t2-name-display"></span> Roster</h3>
+                        </div>
+                        <div id="team2-roster" class="player-roster"></div>
+                        <div class="card-header" style="margin-top: 15px;">
+                            <h3>Active Squad</h3>
+                        </div>
+                        <div id="team2-active-players" class="active-players"></div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Sidebar Area -->
+        <aside class="sidebar">
+            <!-- Match Logs -->
+            <section class="card match-logs-container">
+                <div class="card-header">
+                    <h3>Live Match Logs</h3>
+                </div>
+                <div id="match-logs">
+                    <div class="log-entry info">Veto in progress...</div>
+                </div>
+            </section>
+
+            <!-- Global Controls -->
+            <section class="card">
+                <div class="card-header">
+                    <h3>Match Controls</h3>
+                </div>
+                <div id="match-winner" class="match-winner-display" style="display: none;"></div>
+                <div class="game-controls">
+                    <button id="next-round" style="display: none;">Simulate Round</button>
+                    <button id="return-to-bracket">Return to Bracket</button>
+                </div>
+            </section>
+        </aside>
+    </div>
+</body>
+</html>

@@ -1,8 +1,12 @@
 let score1Element, score2Element, team1LogoElement, team1NameElement, team2LogoElement, team2NameElement, nextRoundButton, returnToBracketButton, matchWinnerElement;
+let autoPlayButton, simSpeedSelect, resetMatchButton;
 let currentMapNameSpan, currentMapStatusElement, mapImageElement;
 let mapPoolElement, banMapTeam1Button, banMapTeam2Button, pickMapTeam1Button, pickMapTeam2Button, mapSelectionContainer;
-let currentMapDisplay, team1RosterElement, team2RosterElement, team1ActivePlayersElement, team2ActivePlayersElement;
+let currentMapDisplay, team1ActivePlayersElement, team2ActivePlayersElement;
+let team1OverlayElement, team2OverlayElement, team1InfoElement, team2InfoElement;
 let team1GunPoolElement, team2GunPoolElement, matchLogsElement, simulationUI;
+
+let isAutoPlaying = false;
 
 let team1Roster = [];
 let team2Roster = [];
@@ -25,8 +29,8 @@ let currentMap = '';
 let currentMapIndex = 0;
 let mapPool = [
     'Abyss',
+    'Ascent',
     'Bind',
-    'Corrode',
     'Haven',
     'Pearl',
     'Split',
@@ -44,6 +48,7 @@ let currentBanPickPhase = 'ban1'; // Start with Team 1 banning
 let playerTeamName = 'TBD';
 let teamStrategies = {}; // Store strategy for each team
 let isAiMoving = false; // Flag to prevent multiple AI moves
+let isMapIntermission = false; // Flag for break between maps
 
 const normalizeName = (n) => {
     if (!n) return '';
@@ -53,7 +58,7 @@ const normalizeName = (n) => {
 import { teams } from './teams.js';
 import { getTeamsWithPlayers } from './players.js';
 import { Player, Team, RoundSimulator, PlayerRating } from './simulation.js';
-import { loadCareer, getSafeTeamByName, getKickoffState, saveKickoffState } from './career_local_storage.jsx';
+import { loadCareer, saveCareer, getSafeTeamByName, getKickoffState, saveKickoffState } from './career_local_storage.jsx';
 
 export function displayMatchDetails() {
     const params = new URLSearchParams(window.location.search);
@@ -290,18 +295,29 @@ function addLog(message, type = 'info') {
            case 'done':
                statusText = `Map selection complete. Ready to start!`;
                mapSelectionContainer.style.display = 'none';
-               currentMapDisplay.style.display = 'block';
+               const mainArea = document.getElementById('simulation-main-area');
+               const sidebarLogs = document.getElementById('sidebar-logs');
+               if (mainArea) mainArea.style.display = 'block';
                if (simulationUI) simulationUI.style.display = 'block';
+               if (sidebarLogs) sidebarLogs.style.display = 'flex';
                nextRoundButton.style.display = 'inline-block';
+               autoPlayButton.style.display = 'inline-block';
+               simSpeedSelect.style.display = 'inline-block';
+               resetMatchButton.style.display = 'inline-block';
                nextRoundButton.textContent = 'Simulate Round';
                
                // Only initialize map if not already set from saved state
                if (!currentMap && pickedMaps.length > 0) {
                    currentMapIndex = 0;
                    currentMap = pickedMaps[0];
+                   isMapIntermission = false; // Ensure not in intermission for first map
                    startNextMap();
                } else if (currentMap) {
                    // Refresh display for current map
+                   if (isMapIntermission) {
+                       nextRoundButton.textContent = 'Start Next Map';
+                       autoPlayButton.style.display = 'none';
+                   }
                    startNextMap();
                }
                break;
@@ -450,103 +466,136 @@ function simulateAIMove() {
 }
 
 function renderPlayerSelection() {
-    if (!team1RosterElement || !team2RosterElement) return;
-    
-    console.log(`renderPlayerSelection: T1 Roster=${team1Roster?.length}, T2 Roster=${team2Roster?.length}`);
-    
-    team1RosterElement.innerHTML = '';
-    const t1Roster = team1Roster || [];
-    t1Roster.forEach(player => {
-        const playerItem = document.createElement('div');
-        playerItem.classList.add('player-item');
-        const isSelected = team1ActivePlayers.some(p => p.id === player.id);
-        if (isSelected) playerItem.classList.add('selected');
-        
-        const kills = player.kills || (player.stats ? player.stats.kills : 0);
-        const deaths = player.deaths || (player.stats ? player.stats.deaths : 0);
-        const assists = player.assists || (player.stats ? player.stats.assists : 0);
-
-        playerItem.innerHTML = `
-            <div style="display: flex; flex-direction: column;">
-                <span>${player.name}</span>
-                <span style="font-size: 10px; color: var(--v-light-grey);">${kills}/${deaths}/${assists}</span>
-            </div>
-            <span class="role-tag">${player.role}</span>
-        `;
-        playerItem.addEventListener('click', () => togglePlayerSelection(player, team1ActivePlayers, team1ActivePlayersElement));
-        team1RosterElement.appendChild(playerItem);
-    });
-
-    team2RosterElement.innerHTML = '';
-    const t2Roster = team2Roster || [];
-    t2Roster.forEach(player => {
-        const playerItem = document.createElement('div');
-        playerItem.classList.add('player-item');
-        const isSelected = team2ActivePlayers.some(p => p.id === player.id);
-        if (isSelected) playerItem.classList.add('selected');
-
-        const kills = player.kills || (player.stats ? player.stats.kills : 0);
-        const deaths = player.deaths || (player.stats ? player.stats.deaths : 0);
-        const assists = player.assists || (player.stats ? player.stats.assists : 0);
-
-        playerItem.innerHTML = `
-            <div style="display: flex; flex-direction: column;">
-                <span>${player.name}</span>
-                <span style="font-size: 10px; color: var(--v-light-grey);">${kills}/${deaths}/${assists}</span>
-            </div>
-            <span class="role-tag">${player.role}</span>
-        `;
-        playerItem.addEventListener('click', () => togglePlayerSelection(player, team2ActivePlayers, team2ActivePlayersElement));
-        team2RosterElement.appendChild(playerItem);
-    });
     renderActivePlayers();
-}
-
-function togglePlayerSelection(player, activePlayersArray, activePlayersElement) {
-    const index = activePlayersArray.findIndex(p => p.id === player.id);
-    if (index > -1) {
-        activePlayersArray.splice(index, 1);
-    } else if (activePlayersArray.length < 5) {
-        activePlayersArray.push(player);
-    }
-    saveMatchState();
-    renderPlayerSelection(); // Re-render to update selected state
 }
 
 function renderActivePlayers() {
     if (!team1ActivePlayersElement || !team2ActivePlayersElement) return;
     
-    team1ActivePlayersElement.innerHTML = '';
-    team1ActivePlayers.forEach(player => {
-        const playerItem = document.createElement('div');
-        playerItem.classList.add('player-item', 'selected');
-        
-        const kills = player.kills || (player.stats ? player.stats.kills : 0);
-        const deaths = player.deaths || (player.stats ? player.stats.deaths : 0);
-        const assists = player.assists || (player.stats ? player.stats.assists : 0);
-        
-        playerItem.innerHTML = `
-            <span>${player.name}</span>
-            <span class="stats-tag">${kills}/${deaths}/${assists}</span>
-        `;
-        team1ActivePlayersElement.appendChild(playerItem);
-    });
+    const renderTeam = (activePlayers, roster, element, teamName) => {
+        element.innerHTML = '';
+        activePlayers.forEach(player => {
+            const playerItem = document.createElement('div');
+            playerItem.classList.add('player-item', 'selected');
+            
+            const kills = player.kills || (player.stats ? player.stats.kills : 0);
+            const deaths = player.deaths || (player.stats ? player.stats.deaths : 0);
+            const assists = player.assists || (player.stats ? player.stats.assists : 0);
+            
+            playerItem.innerHTML = `
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-weight: 700;">${player.name}</span>
+                    <span class="role-tag" style="font-size: 9px; opacity: 0.7;">${player.role}</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span class="stats-tag">${kills}/${deaths}/${assists}</span>
+                    <button class="sub-btn" style="background: transparent; border: none; color: white; cursor: pointer; font-size: 10px; padding: 0;" title="Substitute Player" ${!isMapIntermission ? 'disabled style="display: none;"' : ''}>🔄</button>
+                </div>
+            `;
 
-    team2ActivePlayersElement.innerHTML = '';
-    team2ActivePlayers.forEach(player => {
-        const playerItem = document.createElement('div');
-        playerItem.classList.add('player-item', 'selected');
-        
-        const kills = player.kills || (player.stats ? player.stats.kills : 0);
-        const deaths = player.deaths || (player.stats ? player.stats.deaths : 0);
-        const assists = player.assists || (player.stats ? player.stats.assists : 0);
+            const subBtn = playerItem.querySelector('.sub-btn');
+            if (isMapIntermission) {
+                subBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    handleSubstitution(player, activePlayers, roster, teamName);
+                });
+            }
+            element.appendChild(playerItem);
+        });
+    };
 
-        playerItem.innerHTML = `
-            <span>${player.name}</span>
-            <span class="stats-tag">${kills}/${deaths}/${assists}</span>
+    renderTeam(team1ActivePlayers, team1Roster, team1ActivePlayersElement, team1.name);
+    renderTeam(team2ActivePlayers, team2Roster, team2ActivePlayersElement, team2.name);
+    
+    // Call scoreboard overlay update to sync player stats in overlays
+    updateScoreboardOverlays();
+}
+
+function updateScoreboardOverlays() {
+    if (!team1OverlayElement || !team2OverlayElement) return;
+
+    const renderOverlay = (activePlayers, roster, overlayElement, teamName) => {
+        overlayElement.innerHTML = `
+            <div class="team-stats-header">
+                <span>ACTIVE ROSTER</span>
+                <span>K/D/A</span>
+            </div>
         `;
-        team2ActivePlayersElement.appendChild(playerItem);
-    });
+        
+        activePlayers.forEach(player => {
+            const playerRow = document.createElement('div');
+            playerRow.className = 'overlay-player';
+            
+            const kills = player.kills || (player.stats ? player.stats.kills : 0);
+            const deaths = player.deaths || (player.stats ? player.stats.deaths : 0);
+            const assists = player.assists || (player.stats ? player.stats.assists : 0);
+            
+            playerRow.innerHTML = `
+                <div class="overlay-player-info">
+                    <span class="overlay-player-name">${player.name}</span>
+                    <span class="overlay-player-role">${player.role}</span>
+                </div>
+                <div class="overlay-player-right">
+                    <div class="overlay-player-stats">${kills}/${deaths}/${assists}</div>
+                    <button class="overlay-sub-btn" title="Substitute Player" ${!isMapIntermission ? 'disabled' : ''}>
+                        🔄
+                    </button>
+                </div>
+            `;
+
+            const subBtn = playerRow.querySelector('.overlay-sub-btn');
+            if (isMapIntermission) {
+                subBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    handleSubstitution(player, activePlayers, roster, teamName);
+                });
+            } else {
+                subBtn.title = "Subs only allowed between maps";
+            }
+
+            overlayElement.appendChild(playerRow);
+        });
+    };
+
+    renderOverlay(team1ActivePlayers, team1Roster, team1OverlayElement, team1.name);
+    renderOverlay(team2ActivePlayers, team2Roster, team2OverlayElement, team2.name);
+}
+
+function handleSubstitution(currentPlayer, activeArray, fullRoster, teamName) {
+    // Find players who are on the bench (in roster but not in active squad)
+    const bench = fullRoster.filter(p => !activeArray.some(ap => String(ap.id) === String(p.id)));
+    
+    if (bench.length === 0) {
+        alert("No substitutes available in the roster!");
+        return;
+    }
+
+    // For simplicity, we'll cycle through the bench or show a prompt
+    // Let's use a simple prompt for now to pick which bench player to bring in
+    const benchNames = bench.map((p, i) => `${i + 1}: ${p.name} (${p.role})`).join('\n');
+    const choice = prompt(`Substitute ${currentPlayer.name} OUT. Choose player to bring IN:\n${benchNames}`);
+    
+    if (choice === null) return;
+    
+    const selectedIndex = parseInt(choice) - 1;
+    if (isNaN(selectedIndex) || selectedIndex < 0 || selectedIndex >= bench.length) {
+        alert("Invalid selection!");
+        return;
+    }
+
+    const newPlayer = bench[selectedIndex];
+    
+    // Perform swap
+    const activeIndex = activeArray.findIndex(p => String(p.id) === String(currentPlayer.id));
+    activeArray[activeIndex] = newPlayer;
+
+    // Log the substitution with symbols as requested
+    // OUT 🔴 n4rrate -> IN 🟢 Martenix
+    const subLog = `SUB: OUT 🔴 ${currentPlayer.name} ➡️ IN 🟢 ${newPlayer.name}`;
+    addLog(subLog, 'strategy-log');
+
+    renderActivePlayers();
+    saveMatchState();
 }
 
 function renderGunSelection() {
@@ -581,8 +630,15 @@ function disableGameControls() {
     // team2WinGameButton.disabled = true;
 }
 
-function handleNextRound() {
+async function handleNextRound() {
     console.log('Next Round button clicked!');
+    
+    // If we are in intermission, the button starts the next map
+    if (isMapIntermission) {
+        startNextMap();
+        return;
+    }
+
     console.log('Active players - Team 1:', team1ActivePlayers.length, 'Team 2:', team2ActivePlayers.length);
     
     if (team1ActivePlayers.length < 5 || team2ActivePlayers.length < 5) {
@@ -634,10 +690,26 @@ function handleNextRound() {
         activeTeam1.side === 'defense' ? activeTeam1 : activeTeam2,
         currentRound, 
         roundLogs,
-        teamStrategies
+        teamStrategies,
+        currentMap // Pass the current map name to the simulator
     );
     const result = roundSim.simulateRound();
     
+    // Animate kill events before updating scores and UI
+    if (result.events && result.events.length > 0) {
+        // Disable controls while animating
+        nextRoundButton.disabled = true;
+        autoPlayButton.disabled = true;
+        
+        await animateKillEvents(result.events);
+        
+        // Re-enable controls if not in auto-play
+        if (!isAutoPlaying) {
+            nextRoundButton.disabled = false;
+            autoPlayButton.disabled = false;
+        }
+    }
+
     // Add round-specific strategy logs to the UI
     roundLogs.forEach(log => {
         addLog(log, 'strategy-log');
@@ -757,7 +829,8 @@ function handleMapWin(winner) {
     score2Element.textContent = '0';
     
     currentMapIndex++;
-    saveMatchState(); // Ensure mapResults is saved to the in-progress state
+    isMapIntermission = true;
+    saveMatchState(); // Ensure mapResults and isMapIntermission is saved
     checkMatchEnd();
 }
 
@@ -778,7 +851,8 @@ function saveMatchState() {
         totalRounds: totalRounds,
         team1ActivePlayers: team1ActivePlayers,
         team2ActivePlayers: team2ActivePlayers,
-        mapResults: mapResults
+        mapResults: mapResults,
+        isMapIntermission: isMapIntermission
     };
     try {
         localStorage.setItem(`match_${activeSaveId}_${matchId}`, JSON.stringify(matchState));
@@ -795,6 +869,9 @@ function checkMatchEnd() {
         matchWinnerElement.style.color = 'var(--v-red)';
         matchWinnerElement.style.display = 'block';
         nextRoundButton.style.display = 'none';
+        autoPlayButton.style.display = 'none';
+        simSpeedSelect.style.display = 'none';
+        resetMatchButton.style.display = 'inline-block'; // Keep reset available
         returnToBracketButton.style.display = 'block';
         saveMatchResult(1);
     } else if (team2MapWins >= mapsToWin) {
@@ -805,21 +882,31 @@ function checkMatchEnd() {
         returnToBracketButton.style.display = 'block';
         saveMatchResult(2);
     } else {
-        // Prepare next map
-        if (currentMapIndex < pickedMaps.length) {
-            currentMap = pickedMaps[currentMapIndex];
-            startNextMap();
-        } else {
-            // This shouldn't happen if veto logic is correct
-            console.error("No more maps to play but match not finished.");
-        }
+        // Prepare next map - but wait for user to click "Start Next Map"
+        nextRoundButton.textContent = 'Start Next Map';
+        nextRoundButton.style.display = 'block';
+        autoPlayButton.style.display = 'none'; // Hide auto-play during break
+        
+        addLog(`Map break: ${team1.name} ${team1MapWins} - ${team2MapWins} ${team2.name}. You can make substitutions now.`, 'info');
+        renderActivePlayers(); // Refresh to enable sub buttons
     }
 }
 
 function startNextMap() {
+    isMapIntermission = false;
+    currentMap = pickedMaps[currentMapIndex];
+    
     currentMapNameSpan.textContent = currentMap;
     const mapNameLower = currentMap.toLowerCase();
     mapImageElement.src = `assets/maps/${mapNameLower}.svg`;
+    
+    // Ensure the map image has a consistent aspect ratio and loading state
+    mapImageElement.style.opacity = '0';
+    mapImageElement.onload = () => {
+        mapImageElement.style.transition = 'opacity 0.5s ease-in-out';
+        mapImageElement.style.opacity = '1';
+    };
+
     addLog(`Starting next map: ${currentMap}`);
     
     // Switch to simulation UI if it was hidden
@@ -827,6 +914,11 @@ function startNextMap() {
     currentMapDisplay.style.display = 'block';
     simulationUI.style.display = 'block';
     nextRoundButton.style.display = 'block';
+    nextRoundButton.textContent = 'Simulate Round';
+    autoPlayButton.style.display = 'inline-block';
+    
+    renderActivePlayers(); // Refresh to disable sub buttons
+    saveMatchState();
 }
 
 function saveMatchResult(winnerTeam) {
@@ -890,15 +982,90 @@ function saveMatchResult(winnerTeam) {
     }
     console.log(`Saved match result for ${matchId}:`, result);
 
-    // Update kickoff state in local storage if it exists
+    // Update kickoff/masters state in local storage if it exists
+    const activeSave = loadCareer();
     const activeSaveId = localStorage.getItem('activeSaveId');
-    if (activeSaveId) {
-        const kickoffState = getKickoffState(activeSaveId);
-        if (kickoffState) {
-            if (!kickoffState.series) kickoffState.series = {};
-            kickoffState.series[matchId] = result;
-            saveKickoffState(kickoffState, activeSaveId);
-            console.log(`Updated kickoff state series ${matchId}`);
+    if (activeSaveId && activeSave) {
+        const playerTeamData = teams.find(t => String(t.id) === String(activeSave.teamId));
+        const playerRegion = playerTeamData ? playerTeamData.region : "Americas";
+        
+        // Handle Kickoff
+        if (matchId && !matchId.startsWith('M-')) {
+            const kickoffState = getKickoffState(playerRegion, activeSaveId);
+            if (kickoffState) {
+                if (!kickoffState.series) kickoffState.series = {};
+                kickoffState.series[matchId] = result;
+                saveKickoffState(kickoffState, playerRegion, activeSaveId);
+                console.log(`Updated kickoff state series ${matchId} for region ${playerRegion}`);
+            }
+        }
+        
+        // Handle Masters Bangkok
+        if (matchId && matchId.startsWith('M-') && activeSave.mastersState) {
+            const st = activeSave.mastersState;
+            console.log("Updating Masters State for match:", matchId);
+            
+            if (matchId.startsWith('M-SWISS')) {
+                if (!st.swiss.matches) st.swiss.matches = {};
+                st.swiss.matches[matchId] = result;
+                
+                // Update Swiss stats
+                if (st.swiss.teamStats) {
+                    if (st.swiss.teamStats[winnerName]) st.swiss.teamStats[winnerName].wins++;
+                    if (st.swiss.teamStats[loserName]) st.swiss.teamStats[loserName].losses++;
+                    
+                    if (st.swiss.teamStats[winnerName] && st.swiss.teamStats[winnerName].wins === 2) {
+                        st.swiss.teamStats[winnerName].qualified = true;
+                    }
+                    if (st.swiss.teamStats[loserName] && st.swiss.teamStats[loserName].losses === 2) {
+                        st.swiss.teamStats[loserName].eliminated = true;
+                    }
+                }
+            } else if (matchId.startsWith('M-PLAYOFF')) {
+                if (!st.playoffs.matches) st.playoffs.matches = {};
+                st.playoffs.matches[matchId] = result;
+                
+                // Progress from SF to GF if both SFs are done
+                if (matchId.startsWith('M-PLAYOFF-SF')) {
+                    const sf1 = st.playoffs.matches['M-PLAYOFF-SF1'];
+                    const sf2 = st.playoffs.matches['M-PLAYOFF-SF2'];
+                    if (sf1 && sf1.winner && sf2 && sf2.winner) {
+                        st.playoffs.grandFinal = 'M-PLAYOFF-GF';
+                        st.playoffs.matches['M-PLAYOFF-GF'] = {
+                            team1: sf1.winner,
+                            team2: sf2.winner,
+                            winner: null,
+                            score: null,
+                            playerStats: null,
+                            isGrandFinal: true,
+                            bestOf: 5
+                        };
+                    }
+                }
+                
+                // Handle Grand Final winner
+                if (matchId === 'M-PLAYOFF-GF') {
+                    st.complete = true;
+                    console.log("Masters Bangkok Grand Final finished! Winner:", winnerName);
+                    // Bonus points for winner
+                    if (!activeSave.championshipPoints) activeSave.championshipPoints = {};
+                    activeSave.championshipPoints[winnerName] = (activeSave.championshipPoints[winnerName] || 0) + 3;
+                }
+            }
+            
+            // Add championship points for any match win
+            if (!activeSave.championshipPoints) activeSave.championshipPoints = {};
+            activeSave.championshipPoints[winnerName] = (activeSave.championshipPoints[winnerName] || 0) + 1;
+            
+            saveCareer(activeSave);
+            
+            // Notify parent if in iframe
+            try {
+                window.parent.dispatchEvent(new CustomEvent('careerUpdate', { detail: activeSave }));
+                window.parent.postMessage({ type: 'careerUpdate', data: activeSave }, window.location.origin);
+            } catch (e) {
+                console.warn("Failed to notify parent of Masters update:", e);
+            }
         }
     }
 }
@@ -921,6 +1088,7 @@ function loadMatchState() {
         currentRound = matchState.currentRound || 0;
         totalRounds = matchState.totalRounds || 0;
         mapResults = matchState.mapResults || [];
+        isMapIntermission = matchState.isMapIntermission || false;
 
     // Rehydrate active players and link them to the roster instances
         if (matchState.team1ActivePlayers) {
@@ -980,12 +1148,193 @@ function clearMatchState() {
     }
 }
 
+async function toggleAutoPlay() {
+    if (isAutoPlaying) {
+        isAutoPlaying = false;
+        autoPlayButton.textContent = 'Auto Play';
+        autoPlayButton.classList.remove('active');
+        nextRoundButton.disabled = false;
+    } else {
+        isAutoPlaying = true;
+        autoPlayButton.textContent = 'Pause';
+        autoPlayButton.classList.add('active');
+        nextRoundButton.disabled = true;
+        await runAutoSimulation();
+    }
+}
+
+/**
+ * Animates the kill events in the kill feed and player markers on the map
+ * @param {Array} events - The events to animate
+ */
+async function animateKillEvents(events) {
+    const killFeed = document.getElementById('kill-feed-main');
+    const playerMarkersContainer = document.getElementById('player-markers');
+    if (!killFeed || !playerMarkersContainer) return;
+
+    // Clear previous markers
+    playerMarkersContainer.innerHTML = '';
+
+    const baseDelay = parseInt(simSpeedSelect.value) || 1000;
+    const eventSpacing = Math.max(100, baseDelay / 5);
+
+    // Track marker elements by player ID
+    const markers = {};
+
+        // Initialize initial markers for all active players
+        const initialEvent = events.find(e => e.type === 'initial_positions');
+        if (initialEvent) {
+            playerMarkersContainer.innerHTML = '';
+            for (const playerId in initialEvent.positions) {
+                const pos = initialEvent.positions[playerId];
+                const player = [...team1ActivePlayers, ...team2ActivePlayers].find(p => String(p.id) === String(playerId));
+                if (!player) continue;
+
+                const marker = document.createElement('div');
+                marker.className = `player-marker ${player.teamId === team1.id ? 'team1' : 'team2'}`;
+                marker.id = `marker-${playerId}`;
+                marker.style.left = `${pos.x}%`;
+                marker.style.top = `${pos.y}%`;
+                
+                // Add name label
+                const label = document.createElement('span');
+                label.className = 'player-label';
+                label.textContent = player.name;
+                marker.appendChild(label);
+                
+                playerMarkersContainer.appendChild(marker);
+                markers[playerId] = marker;
+            }
+        }
+
+    for (const event of events) {
+        if (event.type === 'initial_positions') {
+            continue; // Already handled
+        } else if (event.type === 'move') {
+            // Update positions for all players in this snapshot
+            for (const playerId in event.positions) {
+                const pos = event.positions[playerId];
+                const marker = markers[playerId] || document.getElementById(`marker-${playerId}`);
+                if (marker) {
+                    marker.style.left = `${pos.x}%`;
+                    marker.style.top = `${pos.y}%`;
+                }
+            }
+        } else if (event.type === 'kill') {
+            const killItem = document.createElement('div');
+            killItem.className = `kill-item ${event.killer.teamId === team1.id ? 'team1-killer' : 'team2-killer'}`;
+            
+            const assistText = event.assister ? ` <span class="assist-plus">+</span> <span class="assister">${event.assister.name}</span>` : '';
+            const hsIcon = event.hs ? ' <span class="hs-icon">◈</span>' : '';
+            
+            killItem.innerHTML = `
+                <span class="killer">${event.killer.name}</span>
+                ${assistText}
+                <span class="kill-icon">⚔️</span>
+                <span class="weapon-icon">[${event.weapon}]</span>
+                ${hsIcon}
+                <span class="victim">${event.victim.name}</span>
+            `;
+            
+            killFeed.appendChild(killItem);
+            
+            // Scroll to bottom
+            killFeed.scrollTop = killFeed.scrollHeight;
+            
+            // Update marker positions and state
+            const killerMarker = markers[event.killer.id] || document.getElementById(`marker-${event.killer.id}`);
+            const victimMarker = markers[event.victim.id] || document.getElementById(`marker-${event.victim.id}`);
+
+            if (killerMarker && event.position) {
+                killerMarker.style.left = `${event.position.x}%`;
+                killerMarker.style.top = `${event.position.y}%`;
+            }
+
+            if (victimMarker) {
+                if (event.position) {
+                    victimMarker.style.left = `${event.position.x}%`;
+                    victimMarker.style.top = `${event.position.y}%`;
+                }
+                victimMarker.classList.add('dead');
+            }
+
+            // Auto-remove kill item after 5 seconds
+            setTimeout(() => {
+                if (killItem.parentNode) {
+                    killItem.style.animation = 'killFadeOut 0.5s forwards';
+                    setTimeout(() => killItem.remove(), 500);
+                }
+            }, 5000);
+        }
+
+        // Dynamic wait based on event type
+        const simSpeedValue = parseInt(simSpeedSelect.value) || 1000;
+        const currentEventSpacing = event.type === 'move' ? 300 : (event.type === 'kill' ? 1000 : 500);
+        await new Promise(resolve => setTimeout(resolve, currentEventSpacing / (1000 / simSpeedValue)));
+    }
+    
+    // Extra wait at the end of the round events
+    await new Promise(resolve => setTimeout(resolve, 500));
+}
+
+async function runAutoSimulation() {
+    while (isAutoPlaying) {
+        // If map intermission starts during auto-play, pause auto-play
+        if (isMapIntermission) {
+            isAutoPlaying = false;
+            autoPlayButton.textContent = 'Auto Play';
+            autoPlayButton.classList.remove('active');
+            nextRoundButton.disabled = false;
+            nextRoundButton.textContent = 'Start Next Map';
+            break;
+        }
+
+        // Check if map or match ended
+        const mapsToWin = Math.ceil(bestOf / 2);
+        if (team1MapWins >= mapsToWin || team2MapWins >= mapsToWin) {
+            isAutoPlaying = false;
+            break;
+        }
+
+        // If a map just ended (team1Score and team2Score are 0 but mapResult was just added)
+        // handleNextRound handles the logic, but we need to be careful about the loop
+        
+        handleNextRound();
+
+        // After handleNextRound, check if we should stop
+        if (team1MapWins >= mapsToWin || team2MapWins >= mapsToWin) {
+            isAutoPlaying = false;
+            break;
+        }
+
+        const delay = 500; // Small delay between rounds for UX
+        await new Promise(resolve => setTimeout(resolve, delay));
+    }
+    
+    // Reset button state when done
+    autoPlayButton.textContent = 'Auto Play';
+    autoPlayButton.classList.remove('active');
+    nextRoundButton.disabled = false;
+}
+
+function resetMatch() {
+    if (!confirm('Are you sure you want to reset the match? All progress will be lost.')) return;
+    
+    isAutoPlaying = false;
+    clearMatchState();
+    window.location.reload();
+}
+
 document.addEventListener('DOMContentLoaded', () => {
      // Initialize all UI elements after DOM is ready
      team1LogoElement = document.getElementById('team1-logo');
      team1NameElement = document.getElementById('team1-name');
      team2LogoElement = document.getElementById('team2-logo');
      team2NameElement = document.getElementById('team2-name');
+     team1OverlayElement = document.getElementById('team1-overlay');
+     team2OverlayElement = document.getElementById('team2-overlay');
+     team1InfoElement = document.getElementById('team1-info');
+     team2InfoElement = document.getElementById('team2-info');
      score1Element = document.getElementById('score1');
      score2Element = document.getElementById('score2');
      matchWinnerElement = document.getElementById('match-winner');
@@ -993,6 +1342,9 @@ document.addEventListener('DOMContentLoaded', () => {
      currentMapStatusElement = document.getElementById('current-map-status');
      mapImageElement = document.getElementById('current-map-image');
      nextRoundButton = document.getElementById('next-round');
+     autoPlayButton = document.getElementById('auto-play');
+     simSpeedSelect = document.getElementById('sim-speed');
+     resetMatchButton = document.getElementById('reset-match');
      returnToBracketButton = document.getElementById('return-to-bracket');
 
      // New UI elements initialization
@@ -1003,26 +1355,69 @@ document.addEventListener('DOMContentLoaded', () => {
      pickMapTeam2Button = document.getElementById('pick-map-team2');
      mapSelectionContainer = document.getElementById('map-selection-container');
      currentMapDisplay = document.getElementById('current-map-display');
-     team1RosterElement = document.getElementById('team1-roster');
-     team2RosterElement = document.getElementById('team2-roster');
-     team1ActivePlayersElement = document.getElementById('team1-active-players');
-     team2ActivePlayersElement = document.getElementById('team2-active-players');
+    team1ActivePlayersElement = document.getElementById('team1-active-players');
+    team2ActivePlayersElement = document.getElementById('team2-active-players');
      team1GunPoolElement = document.getElementById('team1-gun-pool');
      team2GunPoolElement = document.getElementById('team2-gun-pool');
      matchLogsElement = document.getElementById('match-logs');
-     simulationUI = document.getElementById('simulation-ui');
+     simulationUI = document.getElementById('simulation-main-area');
 
      // Add event listeners after elements are initialized
      if (nextRoundButton) {
         nextRoundButton.addEventListener('click', handleNextRound);
      }
+
+     if (autoPlayButton) {
+        autoPlayButton.addEventListener('click', toggleAutoPlay);
+     }
+
+     if (resetMatchButton) {
+        resetMatchButton.addEventListener('click', resetMatch);
+     }
      
      if (returnToBracketButton) {
         returnToBracketButton.addEventListener('click', () => {
             clearMatchState(); // Clear state when returning to bracket
-            window.location.href = 'kickoff.html';
+            const params = new URLSearchParams(window.location.search);
+            const tournament = params.get('tournament');
+            if (tournament === 'masters') {
+                window.location.href = 'masters_bangkok.html';
+            } else {
+                window.location.href = 'kickoff.html';
+            }
         });
      }
+
+     // Add click-to-lock functionality for team overlays
+     [team1InfoElement, team2InfoElement].forEach((el, index) => {
+         if (!el) return;
+         el.addEventListener('click', (e) => {
+             const overlay = index === 0 ? team1OverlayElement : team2OverlayElement;
+             const otherOverlay = index === 0 ? team2OverlayElement : team1OverlayElement;
+             
+             // Close other overlay
+             if (otherOverlay) otherOverlay.classList.remove('locked');
+             
+             // Toggle current overlay
+             if (overlay) {
+                 overlay.classList.toggle('locked');
+                 e.stopPropagation();
+             }
+         });
+     });
+
+     // Close locked overlays when clicking elsewhere
+     document.addEventListener('click', () => {
+         if (team1OverlayElement) team1OverlayElement.classList.remove('locked');
+         if (team2OverlayElement) team2OverlayElement.classList.remove('locked');
+     });
+
+     // Prevent closing when clicking inside the overlay
+     [team1OverlayElement, team2OverlayElement].forEach(el => {
+         if (el) {
+             el.addEventListener('click', (e) => e.stopPropagation());
+         }
+     });
 
      // Start initialization
      displayMatchDetails();

@@ -1,118 +1,288 @@
+/* Masters Bangkok Tournament Styling */
+:root {
+    --bangkok-red: #ff4655;
+    --bangkok-dark: #0f1923;
+    --bangkok-gray: #1f2326;
+    --bangkok-gold: #ffb400;
+    --bangkok-cyan: #00f3ff;
+}
+
+#career-masters {
+    padding: 20px;
+    background: linear-gradient(180deg, rgba(15, 25, 35, 0.8) 0%, rgba(15, 25, 35, 0.95) 100%);
+    min-height: 100%;
+}
+
+.masters-header {
+    text-align: center;
+    margin-bottom: 40px;
+    padding: 60px 20px;
+    background: radial-gradient(circle at center, rgba(255, 70, 85, 0.15) 0%, transparent 70%);
+    position: relative;
+    overflow: hidden;
+}
+
+.bangkok-logo-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.vct-logo {
+    height: 40px;
+    opacity: 0.9;
+    filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.3));
+}
+
+.header-divider {
+    width: 100px;
+    height: 3px;
+    background: var(--bangkok-red);
+    margin: 0 auto 20px;
+    box-shadow: 0 0 15px var(--bangkok-red);
+}
+
+.masters-header h1 {
+    font-family: 'Valorant', sans-serif;
+    font-size: 4rem;
+    color: #fff;
+    text-transform: uppercase;
+    letter-spacing: 8px;
+    margin: 0;
+    text-shadow: 0 0 30px rgba(255, 70, 85, 0.6);
+}
+
+.masters-header p {
+    font-size: 1.2rem;
+    color: var(--bangkok-gold);
+    font-weight: 500;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    opacity: 0.9;
+}
+
 .bracket-wrapper {
     display: flex;
     flex-direction: column;
     gap: 40px;
-    padding: 20px;
-    background: rgba(0, 0, 0, 0.3);
-    border-radius: 8px;
+    padding: 30px;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
     margin-top: 20px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
 }
 
 .bracket-section {
     width: 100%;
+    margin-bottom: 20px;
 }
 
 .bracket-section h3 {
-    color: var(--v-cyan);
-    margin-bottom: 15px;
-    border-bottom: 1px solid rgba(0, 243, 255, 0.3);
-    padding-bottom: 5px;
+    color: var(--bangkok-red);
+    margin-bottom: 25px;
     font-family: 'Valorant', sans-serif;
+    font-size: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.bracket-section h3::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, rgba(255, 70, 85, 0.5), transparent);
 }
 
 .bracket-grid {
     display: flex;
-    gap: 30px;
+    gap: 40px;
     overflow-x: auto;
-    padding-bottom: 10px;
+    padding: 20px 0;
+    scrollbar-width: thin;
+    scrollbar-color: var(--bangkok-red) transparent;
+}
+
+.bracket-grid::-webkit-scrollbar {
+    height: 6px;
+}
+
+.bracket-grid::-webkit-scrollbar-thumb {
+    background: var(--bangkok-red);
+    border-radius: 3px;
 }
 
 .round {
-    min-width: 200px;
+    min-width: 280px;
 }
 
 .round h4 {
-    font-size: 0.9rem;
-    color: #888;
-    margin-bottom: 10px;
+    font-size: 0.85rem;
+    color: #8b978f;
+    margin-bottom: 15px;
     text-transform: uppercase;
+    letter-spacing: 2px;
+    font-weight: 600;
+    border-left: 3px solid var(--bangkok-red);
+    padding-left: 10px;
 }
 
 .matches-vertical {
     display: flex;
     flex-direction: column;
-    gap: 15px;
+    gap: 20px;
 }
 
 .match {
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: #1f2326;
+    border: 1px solid #363c40;
     border-radius: 4px;
-    padding: 10px;
+    padding: 12px;
     position: relative;
-    transition: all 0.2s;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 .match:hover {
-    border-color: var(--v-cyan);
-    background: rgba(0, 243, 255, 0.05);
+    border-color: var(--bangkok-red);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(255, 70, 85, 0.2);
 }
 
 .team-element {
     display: flex;
     align-items: center;
-    gap: 10px;
-    margin-bottom: 5px;
-    font-size: 0.9rem;
+    gap: 12px;
+    padding: 6px 8px;
+    border-radius: 3px;
+    transition: background 0.2s;
+}
+
+.team-element:first-child {
+    margin-bottom: 4px;
 }
 
 .team-element.my-team {
-    color: var(--v-cyan);
-    font-weight: bold;
+    background: rgba(0, 243, 255, 0.05);
+    border: 1px solid rgba(0, 243, 255, 0.2);
+}
+
+.team-element.my-team span {
+    color: var(--bangkok-cyan);
+    font-weight: 700;
 }
 
 .team-logo {
-    width: 24px;
-    height: 24px;
+    width: 28px;
+    height: 28px;
     object-fit: contain;
+    filter: drop-shadow(0 0 4px rgba(0,0,0,0.5));
 }
 
 .team-score {
     margin-left: auto;
-    font-family: monospace;
-    color: var(--v-cyan);
+    font-family: 'Valorant', monospace;
+    color: #ece8e1;
+    font-size: 1.1rem;
+    font-weight: 700;
+    background: rgba(0,0,0,0.3);
+    padding: 2px 8px;
+    border-radius: 3px;
 }
 
 .match-winner {
-    font-size: 0.8rem;
-    color: #888;
-    margin-top: 5px;
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
-    padding-top: 5px;
+    display: none; /* Hide the text winner, use highlighting instead */
+}
+
+/* Winner highlighting */
+.team-element.winner {
+    background: rgba(255, 180, 0, 0.05);
+}
+
+.team-element.winner .team-score {
+    color: var(--bangkok-gold);
 }
 
 .simulate-button {
     width: 100%;
-    margin-top: 10px;
-    padding: 5px;
-    background: var(--v-red);
-    color: white;
-    border: none;
-    border-radius: 3px;
-    cursor: pointer;
-    font-size: 0.8rem;
+    margin-top: 12px;
+    padding: 8px;
+    background: transparent;
+    color: var(--bangkok-red);
+    border: 1px solid var(--bangkok-red);
+    font-family: 'Valorant', sans-serif;
     text-transform: uppercase;
-    transition: 0.2s;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 0.8rem;
 }
 
 .simulate-button:hover:not(:disabled) {
-    background: #ff5858;
+    background: var(--bangkok-red);
+    color: white;
 }
 
 .simulate-button:disabled {
-    background: #444;
-    cursor: not-allowed;
-    opacity: 0.6;
+    opacity: 0.3;
+    cursor: default;
+    border-color: #363c40;
+    color: #8b978f;
+}
+
+/* Swiss Standings Table */
+.box table {
+    border-collapse: separate;
+    border-spacing: 0 8px;
+    margin-top: 15px;
+}
+
+.box th {
+    text-align: left;
+    color: #8b978f;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    padding: 10px 15px;
+}
+
+.box tr:not(:first-child) {
+    background: rgba(255, 255, 255, 0.03);
+    transition: background 0.2s;
+}
+
+.box tr:not(:first-child):hover {
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.box td {
+    padding: 12px 15px;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.box td:first-child {
+    border-left: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 4px 0 0 4px;
+    font-weight: 600;
+}
+
+.box td:last-child {
+    border-right: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 0 4px 4px 0;
+}
+
+/* Progress Info Box */
+.progress-box {
+    animation: fadeIn 0.5s ease-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
 .masters-header {
@@ -127,9 +297,98 @@
     margin-bottom: 10px;
 }
 
-#not-qualified-msg {
-    text-align: center;
-    padding: 50px;
-    color: #888;
-    font-style: italic;
+/* Swiss Stage Specific Layout */
+.swiss-layout {
+    display: grid !important;
+    grid-template-columns: 350px 1fr;
+    gap: 40px;
+    align-items: start;
+    padding: 30px;
+}
+
+.swiss-standings-box {
+    position: sticky;
+    top: 20px;
+    height: fit-content;
+    background: rgba(15, 25, 35, 0.6) !important;
+    border: 1px solid rgba(255, 70, 85, 0.2) !important;
+    backdrop-filter: blur(10px);
+}
+
+.swiss-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0 4px;
+}
+
+.swiss-table th {
+    font-family: 'Valorant', sans-serif;
+    font-size: 0.75rem;
+    color: #8b978f;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    padding: 10px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.swiss-table td {
+    padding: 12px 10px;
+    font-size: 0.9rem;
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.swiss-table tr:hover td {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.swiss-rounds-grid {
+    display: flex;
+    flex-direction: row;
+    gap: 30px;
+    padding: 0;
+    overflow-x: auto;
+    min-height: 500px;
+}
+
+.swiss-rounds-grid .round {
+    min-width: 300px;
+    background: rgba(255, 255, 255, 0.01);
+    padding: 15px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+/* Status colors in table */
+.winner {
+    color: var(--bangkok-gold);
+    font-weight: bold;
+}
+
+.eliminated {
+    color: #ff4655;
+    opacity: 0.7;
+}
+
+/* Scrollbar styling for rounds */
+.swiss-rounds-grid::-webkit-scrollbar {
+    height: 8px;
+}
+
+.swiss-rounds-grid::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 4px;
+}
+
+.swiss-rounds-grid::-webkit-scrollbar-thumb {
+    background: var(--bangkok-red);
+    border-radius: 4px;
+}
+
+@media (max-width: 1200px) {
+    .swiss-layout {
+        grid-template-columns: 1fr;
+    }
+    .swiss-standings-box {
+        position: static;
+    }
 }

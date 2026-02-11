@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import Inbox from './Inbox.jsx';
 import SimWeekButton from './SimWeekButton.jsx'; // Import SimWeekButton
 import PlayersHub from './PlayersHub.jsx';
@@ -208,19 +208,39 @@ const CareerContent = ({ activeSection, activeSave, setActiveSave }) => {
   const teamInfo = activeSave ? (teams.find(t => String(t.id) === String(activeSave.teamId)) || { power: 0, potential: 0 }) : { power: 0, potential: 0 };
 
   const myPlayers = activeSave?.players?.filter(p => {
-    const normalize = (n) => String(n || '').toLowerCase().trim();
+    if (!p) return false;
     
+    const normalize = (n) => String(n || '').toLowerCase().trim();
+    const isInvalid = (v) => !v || v === 'null' || v === 'undefined';
+
     const activeTeamId = activeSave.teamId ? String(activeSave.teamId) : null;
     const activeTeamNameNorm = normalize(activeSave.team);
     
     const playerTeamId = p.teamId ? String(p.teamId) : null;
     const playerTeamNameNorm = normalize(p.team);
 
-    const matchesId = activeTeamId && playerTeamId && playerTeamId === activeTeamId;
-    const matchesName = activeTeamNameNorm && playerTeamNameNorm && playerTeamNameNorm === activeTeamNameNorm;
+    const matchesId = !isInvalid(activeTeamId) && !isInvalid(playerTeamId) && playerTeamId === activeTeamId;
+    const matchesName = !isInvalid(activeTeamNameNorm) && !isInvalid(playerTeamNameNorm) && playerTeamNameNorm === activeTeamNameNorm;
     
     return matchesId || matchesName;
   }) || [];
+
+  // Calculate dynamic power and potential based on current roster
+  const dynamicTeamStats = useMemo(() => {
+    if (myPlayers.length === 0) return { power: teamInfo.power, potential: teamInfo.potential };
+
+    // Sort players by rating to find the top 5 (starters)
+    const sortedPlayers = [...myPlayers].sort((a, b) => (b.overall || 75) - (a.overall || 75));
+    const starters = sortedPlayers.slice(0, 5);
+    
+    const avgPower = starters.reduce((sum, p) => sum + (p.overall || 75), 0) / starters.length;
+    const avgPotential = starters.reduce((sum, p) => sum + (p.potential || 80), 0) / starters.length;
+
+    return {
+      power: Math.round(avgPower),
+      potential: Math.round(avgPotential)
+    };
+  }, [myPlayers, teamInfo]);
   
   if (activeSave) {
     console.log("CareerContent: activeSave.teamId:", activeSave.teamId, "name:", activeSave.team);
@@ -249,12 +269,22 @@ const CareerContent = ({ activeSection, activeSave, setActiveSave }) => {
 
   useEffect(() => {
     const handleCareerUpdate = (event) => {
-      console.log("CareerContent: careerUpdate event received", event.detail);
-      setActiveSave(event.detail);
+      // Handle both CustomEvent (from direct dispatch) and MessageEvent (from postMessage)
+      const data = event.detail || (event.data && event.data.type === 'careerUpdate' ? event.data.data : null);
+      
+      if (data) {
+        console.log("CareerContent: careerUpdate event received", data);
+        setActiveSave(data);
+      }
     };
 
     window.addEventListener('careerUpdate', handleCareerUpdate);
-    return () => window.removeEventListener('careerUpdate', handleCareerUpdate);
+    window.addEventListener('message', handleCareerUpdate);
+    
+    return () => {
+      window.removeEventListener('careerUpdate', handleCareerUpdate);
+      window.removeEventListener('message', handleCareerUpdate);
+    };
   }, [setActiveSave]);
 
   useEffect(() => {
@@ -269,13 +299,18 @@ const CareerContent = ({ activeSection, activeSave, setActiveSave }) => {
       }, 0);
     }
 
-    // Send message to iframe to re-render kickoff bracket when activeSave changes
+    // Send message to iframe to re-render brackets when activeSave changes
     if (activeSection === 'kickoff') {
       const iframe = document.getElementById('kickoff-iframe');
       if (iframe && iframe.contentWindow) {
-        // Use window.location.origin instead of '*' for better security and to potentially 
-        // avoid triggering some extension listeners that ignore specific-origin messages
         iframe.contentWindow.postMessage('rerenderKickoff', window.location.origin);
+      }
+    }
+    
+    if (activeSection === 'masters-bangkok') {
+      const iframe = document.getElementById('masters-iframe');
+      if (iframe && iframe.contentWindow) {
+        iframe.contentWindow.postMessage('rerenderMasters', window.location.origin);
       }
     }
   }, [activeSave, activeSection]);
@@ -292,7 +327,7 @@ const CareerContent = ({ activeSection, activeSave, setActiveSave }) => {
             <h2>My Office</h2>
             <div className="season-info-and-button">
               <div className="season-info">
-                Week {activeSave?.week || 1} / {activeSave?.offseason?.phase === 'offseason' ? 'Offseason' : 'Kickoff'} / Season {activeSave?.season || 1}
+                Week {activeSave?.week || 1} / {activeSave?.week === 4 ? 'Kickoff' : activeSave?.week === 5 ? 'Break' : activeSave?.week >= 6 ? 'Masters Bangkok' : 'Pre-Season'} / Season {activeSave?.season || 1}
               </div>
               <SimWeekButton activeSave={activeSave} setActiveSave={setActiveSave} />
             </div>
@@ -407,7 +442,7 @@ const CareerContent = ({ activeSection, activeSave, setActiveSave }) => {
             </div>
             <div className="season-info-and-button">
               <div className="season-info">
-                Week {activeSave?.week || 1} / {activeSave?.offseason?.phase === 'offseason' ? 'Offseason' : 'Kickoff'} / Season {activeSave?.season || 1}
+                Week {activeSave?.week || 1} / {activeSave?.week === 4 ? 'Kickoff' : activeSave?.week === 5 ? 'Break' : activeSave?.week >= 6 ? 'Masters Bangkok' : 'Pre-Season'} / Season {activeSave?.season || 1}
               </div>
               <SimWeekButton activeSave={activeSave} setActiveSave={setActiveSave} />
             </div>
@@ -420,11 +455,11 @@ const CareerContent = ({ activeSection, activeSave, setActiveSave }) => {
                   <>
                     <div className="stat-card">
                       <div className="stat-title">Overall Power</div>
-                      <div className="stat-value">{teamInfo.power}</div>
+                      <div className="stat-value">{dynamicTeamStats.power}</div>
                     </div>
                     <div className="stat-card">
                       <div className="stat-title">Team Potential</div>
-                      <div className="stat-value">{teamInfo.potential}</div>
+                      <div className="stat-value">{dynamicTeamStats.potential}</div>
                     </div>
                     <div className="stat-card">
                       <div className="stat-title">Region</div>

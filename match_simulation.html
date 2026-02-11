@@ -14,9 +14,10 @@
         <!-- Scoreboard Header -->
         <header class="scoreboard-container">
             <div class="match-details">
-                <div class="team-info">
+                <div class="team-info team1">
                     <img id="team1-logo" src="" alt="Team 1 Logo">
                     <h2 id="team1-name">TEAM 1</h2>
+                    <div id="team1-overlay" class="team-stats-overlay"></div>
                 </div>
 
                 <div class="score-display">
@@ -26,9 +27,10 @@
                     </div>
                 </div>
 
-                <div class="team-info">
+                <div class="team-info team2">
                     <img id="team2-logo" src="" alt="Team 2 Logo">
                     <h2 id="team2-name">TEAM 2</h2>
+                    <div id="team2-overlay" class="team-stats-overlay"></div>
                 </div>
             </div>
         </header>
@@ -44,37 +46,22 @@
                 <div id="current-map-status" class="map-status">Waiting for veto...</div>
             </section>
 
-            <!-- Active Map (Visible during Round Simulation) -->
-            <section id="current-map-display" style="display: none;">
-                <img id="current-map-image" src="" alt="Current Map">
-                <div class="map-overlay">
-                    <h3>Current Map: <span id="current-map-name"></span></h3>
-                </div>
-            </section>
-
-            <!-- Team Rosters & Active Players -->
-            <section class="simulation-ui" id="simulation-ui" style="display: none;">
-                <div class="team-player-selection">
-                    <div class="card">
-                        <div class="card-header">
-                            <h3><span id="t1-name-display"></span> Roster</h3>
+            <!-- Active Map Area -->
+            <section id="simulation-main-area" style="display: none;">
+                <div class="simulation-layout">
+                    <!-- Map Section -->
+                    <div id="current-map-display">
+                        <div class="map-overlay">
+                            <h3><span id="current-map-name"></span></h3>
                         </div>
-                        <div id="team1-roster" class="player-roster"></div>
-                        <div class="card-header" style="margin-top: 15px;">
-                            <h3>Active Squad</h3>
-                        </div>
-                        <div id="team1-active-players" class="active-players"></div>
+                        <img id="current-map-image" src="" alt="Current Map">
+                        <div class="player-markers" id="player-markers"></div>
                     </div>
 
-                    <div class="card">
-                        <div class="card-header">
-                            <h3><span id="t2-name-display"></span> Roster</h3>
-                        </div>
-                        <div id="team2-roster" class="player-roster"></div>
-                        <div class="card-header" style="margin-top: 15px;">
-                            <h3>Active Squad</h3>
-                        </div>
-                        <div id="team2-active-players" class="active-players"></div>
+                    <!-- Kill Feed Below Map -->
+                    <div class="kill-feed-container card main-area-feed">
+                        <div class="card-header"><h3>Kill Feed</h3></div>
+                        <div id="kill-feed-main" class="kill-feed-relative"></div>
                     </div>
                 </div>
             </section>
@@ -82,16 +69,6 @@
 
         <!-- Sidebar Area -->
         <aside class="sidebar">
-            <!-- Match Logs -->
-            <section class="card match-logs-container">
-                <div class="card-header">
-                    <h3>Live Match Logs</h3>
-                </div>
-                <div id="match-logs">
-                    <div class="log-entry info">Veto in progress...</div>
-                </div>
-            </section>
-
             <!-- Global Controls -->
             <section class="card">
                 <div class="card-header">
@@ -100,9 +77,41 @@
                 <div id="match-winner" class="match-winner-display" style="display: none;"></div>
                 <div class="game-controls">
                     <button id="next-round" style="display: none;">Simulate Round</button>
+                    <button id="auto-play" style="display: none;">Auto Play</button>
+                    <select id="sim-speed" style="display: none;" class="sim-speed-select">
+                        <option value="2000">Slow</option>
+                        <option value="1000" selected>Normal</option>
+                        <option value="500">Fast</option>
+                        <option value="100">Super Fast</option>
+                    </select>
+                    <button id="reset-match" style="display: none;" class="secondary">Reset Match</button>
                     <button id="return-to-bracket">Return to Bracket</button>
                 </div>
             </section>
+
+            <!-- Combined Side Logs Section -->
+            <div class="side-logs" id="sidebar-logs" style="display: none;">
+                <!-- Team Rosters (Moved to Scoreboard Hover, keeping containers hidden but available for JS if needed) -->
+                <div class="team-player-selection" style="display: none;">
+                    <div class="card">
+                        <div class="card-header"><h3><span id="t1-name-display"></span></h3></div>
+                        <div id="team1-active-players" class="player-roster"></div>
+                    </div>
+                    <div class="card">
+                        <div class="card-header"><h3><span id="t2-name-display"></span></h3></div>
+                        <div id="team2-active-players" class="player-roster"></div>
+                    </div>
+                </div>
+
+                <div class="mini-logs-container card">
+                    <div class="card-header">
+                        <h3>Action Log</h3>
+                    </div>
+                    <div id="match-logs" class="logs-content">
+                        <div class="log-entry info">Ready to simulate...</div>
+                    </div>
+                </div>
+            </div>
         </aside>
     </div>
 </body>

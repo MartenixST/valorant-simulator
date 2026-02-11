@@ -223,21 +223,29 @@
 }
 
 .search-input, .filter-group select {
-  background: #0f1923;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: #1a242d;
+  border: 1px solid rgba(255, 255, 255, 0.2);
   color: #ece8e1;
   padding: 12px 16px;
-  font-size: 14px;
+  font-size: 15px;
+  font-weight: 600;
   transition: all 0.3s ease;
   width: 100%;
   box-sizing: border-box;
+  cursor: pointer;
 }
 
 .search-input:focus, .filter-group select:focus {
   border-color: #ff4655;
   outline: none;
-  background: rgba(255, 70, 85, 0.05);
-  box-shadow: 0 0 15px rgba(255, 70, 85, 0.1);
+  background: #252e37;
+  box-shadow: 0 0 15px rgba(255, 70, 85, 0.2);
+}
+
+.filter-group select option {
+  background: #1a242d;
+  color: #ece8e1;
+  padding: 10px;
 }
 
 .search-input::placeholder {
@@ -273,6 +281,90 @@
   height: 1px;
   background: rgba(255, 255, 255, 0.1);
 }
+
+.player-list-container {
+  width: 100%;
+  overflow-x: auto;
+  background: #111b26;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+}
+
+.player-list-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.player-list-table th {
+  padding: 16px 20px;
+  background: rgba(0, 0, 0, 0.3);
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 11px;
+  text-transform: uppercase;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+  border-bottom: 2px solid rgba(255, 70, 85, 0.3);
+}
+
+.player-list-row {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  transition: all 0.2s ease;
+}
+
+.player-list-row:hover {
+  background: rgba(255, 70, 85, 0.05);
+}
+
+.player-list-row td {
+  padding: 12px 20px;
+  vertical-align: middle;
+}
+
+.player-list-name {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.player-list-name strong {
+  font-family: 'Valorant', sans-serif;
+  font-size: 16px;
+  color: #ece8e1;
+  letter-spacing: 1px;
+}
+
+.player-list-role {
+  font-size: 10px;
+  color: #ff4655;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+
+.player-list-overall {
+  font-weight: 900;
+  font-size: 18px;
+  font-family: 'Valorant', sans-serif;
+}
+
+.player-list-salary {
+  color: #00f6ff;
+  font-family: 'Valorant', sans-serif;
+  font-size: 14px;
+}
+
+.player-list-action .sign-player-btn {
+  max-width: none;
+  width: 100%;
+  padding: 8px 16px;
+  font-size: 11px;
+}
+
+/* Rating border colors for the row indicator */
+.player-list-row.rating-elite { border-left: 3px solid #ffb900; }
+.player-list-row.rating-good { border-left: 3px solid #00ff85; }
+.player-list-row.rating-average { border-left: 3px solid #00f6ff; }
+.player-list-row.rating-poor { border-left: 3px solid #ff4655; }
 
 .player-cards-grid {
   display: grid;
@@ -817,4 +909,156 @@
   border-radius: 4px;
   grid-column: 1 / -1;
   text-align: center;
+}
+
+/* Player Details Dropdown Specific Styles */
+.player-details-row {
+  background: rgba(0, 0, 0, 0.2) !important;
+  border-bottom: 1px solid rgba(255, 70, 85, 0.2);
+}
+
+.player-details-dropdown-content {
+  padding: 30px;
+  animation: dropdownSlideDown 0.3s cubic-bezier(0.165, 0.84, 0.44, 1);
+  color: #ece8e1;
+}
+
+@keyframes dropdownSlideDown {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.dropdown-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 40px;
+}
+
+.dropdown-section h4 {
+  font-family: 'Valorant', sans-serif;
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  margin-bottom: 20px;
+  color: rgba(255, 255, 255, 0.3);
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.dropdown-section h4::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.dropdown-stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px 30px;
+}
+
+.dropdown-stat-item {
+  display: grid;
+  grid-template-columns: 100px 1fr 30px;
+  align-items: center;
+  gap: 15px;
+}
+
+.dropdown-stat-item .stat-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  font-weight: 800;
+  color: rgba(236, 232, 225, 0.5);
+  letter-spacing: 1px;
+}
+
+.dropdown-stat-item .stat-value {
+  font-family: 'Valorant', sans-serif;
+  font-size: 14px;
+  font-weight: 900;
+  text-align: right;
+}
+
+.dropdown-profile-info {
+  background: rgba(255, 255, 255, 0.02);
+  padding: 20px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.profile-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.profile-row span {
+  font-size: 11px;
+  text-transform: uppercase;
+  font-weight: 800;
+  color: rgba(255, 255, 255, 0.3);
+  letter-spacing: 1px;
+}
+
+.profile-row strong {
+  font-size: 14px;
+  color: #ece8e1;
+}
+
+.dropdown-description {
+  margin-top: 10px;
+  padding-top: 15px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  line-height: 1.5;
+  color: rgba(236, 232, 225, 0.6);
+  font-style: italic;
+  font-size: 13px;
+}
+
+.expand-icon {
+  font-size: 8px;
+  color: rgba(255, 255, 255, 0.3);
+  transition: transform 0.3s ease;
+  display: inline-block;
+  width: 10px;
+}
+
+.expand-icon.rotated {
+  transform: rotate(90deg);
+  color: #ff4655;
+}
+
+.player-list-row.is-expanded {
+  background: rgba(255, 70, 85, 0.05) !important;
+  border-bottom: none !important;
+}
+
+.cursor-pointer {
+  cursor: pointer;
+}
+
+.table-team-logo {
+  width: 18px !important;
+  height: 18px !important;
+  object-fit: contain !important;
+  opacity: 0.85;
+  display: block;
+}
+
+@media (max-width: 1000px) {
+  .dropdown-grid {
+    grid-template-columns: 1fr;
+    gap: 30px;
+  }
+}
+
+@media (max-width: 600px) {
+  .dropdown-stats-grid {
+    grid-template-columns: 1fr;
+  }
 }

@@ -27,13 +27,6 @@ export const realPlayers = {
         { name: "okeanos", role: "Duelist", nationality: "Brazil", age: 19, baseRating: 81 },
         { name: "Sato", role: "Duelist", nationality: "USA", age: 18, baseRating: 82 }
     ],
-    "Leviatán": [
-        { name: "kiNgg", role: "Controller", nationality: "Chile", age: 22, baseRating: 87 },
-        { name: "tex", role: "Duelist", nationality: "USA", age: 24, baseRating: 84 },
-        { name: "C0M", role: "Initiator", nationality: "USA", age: 25, baseRating: 83 },
-        { name: "okeanos", role: "Duelist", nationality: "Brazil", age: 19, baseRating: 81 },
-        { name: "Sato", role: "Duelist", nationality: "USA", age: 18, baseRating: 82 }
-    ],
     "Cloud9": [
         { name: "OXY", role: "Duelist", nationality: "USA", age: 19, baseRating: 85 },
         { name: "Xeppaa", role: "Initiator", nationality: "USA", age: 23, baseRating: 82 },
@@ -89,5 +82,89 @@ export const realPlayers = {
         { name: "spikeziN", role: "Initiator", nationality: "Brazil", age: 19, baseRating: 72 },
         { name: "gobera", role: "Sentinel", nationality: "Brazil", age: 22, baseRating: 71 },
         { name: "pryze", role: "Duelist", nationality: "Brazil", age: 20, baseRating: 72 }
+    ],
+    "BBL Esports": [
+        { name: "Jamppi", role: "Duelist", nationality: "Finland", age: 22, baseRating: 85 },
+        { name: "PROFEK", role: "Initiator", nationality: "Turkey", age: 20, baseRating: 80 },
+        { name: "LewN", role: "Controller", nationality: "Turkey", age: 21, baseRating: 78 },
+        { name: "sociablEE", role: "Duelist", nationality: "Turkey", age: 22, baseRating: 79 },
+        { name: "chiwa", role: "Sentinel", nationality: "Russia", age: 23, baseRating: 77 }
+    ],
+    "Karmine Corp": [
+        { name: "Elite", role: "Sentinel", nationality: "Turkey", age: 20, baseRating: 83 },
+        { name: "Marteen", role: "Duelist", nationality: "Czech Republic", age: 19, baseRating: 84 },
+        { name: "Saadhak", role: "Initiator", nationality: "Argentina", age: 27, baseRating: 86 },
+        { name: "avez", role: "Controller", nationality: "Egypt", age: 21, baseRating: 81 },
+        { name: "suygetsu", role: "Sentinel", nationality: "Russia", age: 22, baseRating: 85 }
+    ],
+    "Team Heretics": [
+        { name: "Boo", role: "Controller", nationality: "Lithuania", age: 25, baseRating: 84 },
+        { name: "benjyfishy", role: "Sentinel", nationality: "UK", age: 20, baseRating: 83 },
+        { name: "MiniBoo", role: "Duelist", nationality: "Lithuania", age: 19, baseRating: 85 },
+        { name: "RieNs", role: "Initiator", nationality: "Turkey", age: 20, baseRating: 84 },
+        { name: "Wo0t", role: "Duelist", nationality: "Turkey", age: 18, baseRating: 86 }
+    ],
+    "Team Liquid": [
+        { name: "nAts", role: "Sentinel", nationality: "Russia", age: 22, baseRating: 87 },
+        { name: "Keiko", role: "Duelist", nationality: "UK", age: 21, baseRating: 83 },
+        { name: "kamyk", role: "Flex", nationality: "Poland", age: 21, baseRating: 81 },
+        { name: "paTiTek", role: "Initiator", nationality: "Poland", age: 24, baseRating: 82 },
+        { name: "kamo", role: "Duelist", nationality: "Poland", age: 20, baseRating: 80 }
+    ],
+    "Vitality": [
+        { name: "Kicks", role: "Initiator", nationality: "Estonia", age: 19, baseRating: 81 },
+        { name: "Sayf", role: "Duelist", nationality: "Sweden", age: 23, baseRating: 87 },
+        { name: "trexx", role: "Flex", nationality: "Russia", age: 21, baseRating: 84 },
+        { name: "Less", role: "Sentinel", nationality: "Brazil", age: 19, baseRating: 88 },
+        { name: "Derke", role: "Duelist", nationality: "Finland", age: 21, baseRating: 88 }
+    ],
+    "GiantX": [
+        { name: "Cloud", role: "Initiator", nationality: "Russia", age: 21, baseRating: 82 },
+        { name: "westside", role: "Controller", nationality: "UK", age: 22, baseRating: 79 },
+        { name: "ara", role: "Sentinel", nationality: "Romania", age: 21, baseRating: 78 },
+        { name: "flickless", role: "Duelist", nationality: "Belgium", age: 20, baseRating: 77 },
+        { name: "grubinho", role: "Controller", nationality: "Poland", age: 21, baseRating: 78 }
+    ],
+    "Fnatic": [
+        { name: "Boaster", role: "Controller", nationality: "UK", age: 28, baseRating: 85 },
+        { name: "Alfajer", role: "Sentinel", nationality: "Turkey", age: 19, baseRating: 88 },
+        { name: "Chronicle", role: "Flex", nationality: "Russia", age: 21, baseRating: 89 },
+        { name: "Crashies", role: "Initiator", nationality: "USA", age: 25, baseRating: 85 },
+        { name: "Kaajak", role: "Duelist", nationality: "Poland", age: 20, baseRating: 82 }
+    ],
+    "Natus Vincere": [
+        { name: "Shao", role: "Initiator", nationality: "Russia", age: 24, baseRating: 86 },
+        { name: "Hiro", role: "Sentinel", nationality: "Turkey", age: 20, baseRating: 82 },
+        { name: "Ruxic", role: "Controller", nationality: "Turkey", age: 21, baseRating: 79 },
+        { name: "sociablEE", role: "Duelist", nationality: "Turkey", age: 22, baseRating: 79 },
+        { name: "alexiiik", role: "Flex", nationality: "Czech Republic", age: 20, baseRating: 78 }
+    ],
+    "Apeks": [
+        { name: "Molsi", role: "Initiator", nationality: "Poland", age: 25, baseRating: 81 },
+        { name: "Penny", role: "Duelist", nationality: "Canada", age: 23, baseRating: 80 },
+        { name: "Olizera", role: "Sentinel", nationality: "Portugal", age: 22, baseRating: 78 },
+        { name: "Batujnax", role: "Controller", nationality: "Turkey", age: 21, baseRating: 77 },
+        { name: "Avova", role: "Controller", nationality: "Denmark", age: 24, baseRating: 82 }
+    ],
+    "KOI": [
+        { name: "Flyuh", role: "Initiator", nationality: "USA", age: 21, baseRating: 80 },
+        { name: "Monsterr", role: "Sentinel", nationality: "Czech Republic", age: 21, baseRating: 82 },
+        { name: "BaddyG", role: "Controller", nationality: "Poland", age: 23, baseRating: 81 },
+        { name: "Natank", role: "Duelist", nationality: "France", age: 22, baseRating: 80 },
+        { name: "Filu", role: "Flex", nationality: "Poland", age: 21, baseRating: 78 }
+    ],
+    "Gentle Mates": [
+        { name: "Minny", role: "Duelist", nationality: "Czech Republic", age: 21, baseRating: 79 },
+        { name: "Veqaj", role: "Initiator", nationality: "France", age: 22, baseRating: 78 },
+        { name: "Comeback", role: "Sentinel", nationality: "Turkey", age: 21, baseRating: 77 },
+        { name: "Kamyk", role: "Flex", nationality: "Poland", age: 21, baseRating: 81 },
+        { name: "Proxh", role: "Controller", nationality: "German", age: 20, baseRating: 76 }
+    ],
+    "FUT Esports": [
+        { name: "Yetujey", role: "Sentinel", nationality: "Turkey", age: 18, baseRating: 83 },
+        { name: "cNed", role: "Duelist", nationality: "Turkey", age: 22, baseRating: 87 },
+        { name: "Qraxs", role: "Initiator", nationality: "Turkey", age: 24, baseRating: 82 },
+        { name: "MrFalin", role: "Controller", nationality: "Turkey", age: 22, baseRating: 84 },
+        { name: "Xeus", role: "Duelist", nationality: "Turkey", age: 20, baseRating: 81 }
     ]
 };

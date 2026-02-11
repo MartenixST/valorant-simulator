@@ -44,11 +44,11 @@ const CareerSidebar = ({ activeSection, handleNavClick, activeSave, setActiveSav
         )}
       </div>
       <nav id="main-nav">
-        {activeSave && activeSave.week > 3 && (
-          <>
-            <a href="#" onClick={() => handleNavClick('kickoff')} className={`nav-item kickoff-button ${activeSection === 'kickoff' ? 'active' : ''}`}><i className="fa-solid fa-play icon" style={{ marginRight: '8px' }}></i>Kickoff</a>
-            <a href="#" onClick={() => handleNavClick('masters-bangkok')} className={`nav-item masters-button ${activeSection === 'masters-bangkok' ? 'active' : ''}`}><i className="fa-solid fa-earth-asia icon" style={{ marginRight: '8px' }}></i>Masters Bangkok</a>
-          </>
+        {activeSave && activeSave.week === 4 && (
+          <a href="#" onClick={() => handleNavClick('kickoff')} className={`nav-item kickoff-button ${activeSection === 'kickoff' ? 'active' : ''}`}><i className="fa-solid fa-play icon" style={{ marginRight: '8px' }}></i>Kickoff</a>
+        )}
+        {activeSave && activeSave.week >= 6 && (
+          <a href="#" onClick={() => handleNavClick('masters-bangkok')} className={`nav-item masters-button ${activeSection === 'masters-bangkok' ? 'active' : ''}`}><i className="fa-solid fa-earth-asia icon" style={{ marginRight: '8px' }}></i>Masters Bangkok</a>
         )}
         <a href="#" onClick={() => handleNavClick('career-dashboard')} className={`nav-item ${activeSection === 'career-dashboard' ? 'active' : ''}`}><i className="fa-solid fa-house icon" style={{ marginRight: '8px' }}></i>My Office</a>
         <a href="#" onClick={() => handleNavClick('career-calendar')} className={`nav-item ${activeSection === 'career-calendar' ? 'active' : ''}`}><i className="fa-solid fa-calendar-days icon" style={{ marginRight: '8px' }}></i>Calendar</a>
