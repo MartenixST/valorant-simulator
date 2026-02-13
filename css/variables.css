@@ -1,0 +1,50 @@
+:root {
+  /* Colors */
+  --v-red: #ff4655;
+  --v-red-dark: #e84150;
+  --v-black: #0f1923;
+  --v-dark-grey: #1c2734;
+  --v-light-grey: #e0e0e0;
+  --v-white: #ffffff;
+  --v-blue: #009FE3;
+  --v-green: #00FF00;
+  --v-yellow: #ffb900;
+  --v-cyan: #00ffff;
+  
+  /* Backgrounds */
+  --bg-main: #0f1923;
+  --bg-card: #1c2734;
+  --bg-sidebar: #0f1117;
+  --bg-sidebar-hover: #1a1c25;
+  --bg-overlay: rgba(0, 0, 0, 0.7);
+  
+  /* Glassmorphism */
+  --glass-bg: rgba(15, 25, 35, 0.7);
+  --glass-bg-light: rgba(28, 39, 52, 0.6);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+  --glass-blur: blur(10px);
+  
+  /* Borders */
+  --border-color: #2a2a2a;
+  --border-radius: 8px;
+  --border-radius-sm: 4px;
+  
+  /* Spacing */
+  --spacing-xs: 5px;
+  --spacing-sm: 10px;
+  --spacing-md: 20px;
+  --spacing-lg: 30px;
+  
+  /* Typography */
+  --font-main: 'Arial', sans-serif;
+  --font-v: 'Valorant', sans-serif;
+  --font-size-base: 14px;
+  --font-size-lg: 18px;
+  --font-size-xl: 24px;
+  
+  /* Z-index */
+  --z-sidebar: 1000;
+  --z-overlay: 1001;
+  --z-modal: 1002;
+}

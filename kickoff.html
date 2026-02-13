@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kickoff</title>
+    <link rel="stylesheet" href="css/variables.css">
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/kickoff.css">
+</head>
+<body>
+    <div id="kickoff-region-selector" class="region-selector">
+        <button class="region-btn active" data-region="Americas">Americas</button>
+        <button class="region-btn" data-region="EMEA">EMEA</button>
+        <button class="region-btn" data-region="Pacific">Pacific</button>
+        <button class="region-btn" data-region="China">China</button>
+    </div>
+    <div id="career-kickoff" class="career-section">
+        <!-- Kickoff header will be dynamically created by renderKickoff() -->
+        <div id="kickoffWatch" class="box" style="display:none;"></div>
+        <div class="bracket-wrapper" id="kickoffBracket">
+          <!-- Grand Final at the top -->
+          <div class="bracket-section" id="kickoffGrandFinal">
+            <h3>Grand Final</h3>
+            <div id="kickoffGrandFinalBracket" class="bracket-grid"></div>
+          </div>
+
+          <div class="bracket-section" id="kickoffPlayIn">
+            <h3>Play-in Round</h3>
+            <div id="kickoffPlayInBracket" class="bracket-grid"></div>
+          </div>
+
+          <div class="bracket-section" id="kickoffUpper">
+            <h3>Upper Bracket</h3>
+            <div id="kickoffUpperBracket" class="bracket-grid"></div>
+          </div>
+
+          <div class="bracket-section" id="kickoffLower">
+            <h3>Lower Bracket</h3>
+            <div id="kickoffLowerBracket" class="bracket-grid"></div>
+          </div>
+        </div>
+    </div>
+    <script src="src/tournaments/kickoff/kickoff_entry.jsx" type="module"></script>
+
+</body>
+</html>

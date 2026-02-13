@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Career Mode</title>
+  <link rel="stylesheet" href="css/variables.css">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/career.css">
+  <link rel="stylesheet" href="css/career_layout.css">
+  <link rel="stylesheet" href="css/players.css">
+  <link rel="stylesheet" href="css/stats_hub.css">
+  <link rel="stylesheet" href="css/tutorial.css">
+</head>
+<body>
+  <div id="root">
+    <div id="career-manage-team" class="content-section hidden">
+      <h2>Manage Team</h2>
+      <div id="team-roster"></div>
+    </div>
+
+    <!-- Player Edit Modal -->
+    <div id="player-edit-modal" class="modal">
+      <div class="modal-content">
+        <span class="close-button">&times;</span>
+        <h3>Edit Player Attributes</h3>
+        <form id="player-edit-form">
+          <input type="hidden" id="edit-player-id">
+          
+          <div class="form-row">
+            <div class="form-group">
+              <label for="edit-player-name">Name:</label>
+              <input type="text" id="edit-player-name" disabled>
+            </div>
+            <div class="form-group">
+              <label for="edit-player-gamertag">Gamertag:</label>
+              <input type="text" id="edit-player-gamertag">
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="edit-player-role">Role:</label>
+              <select id="edit-player-role">
+                <option value="Duelist">Duelist</option>
+                <option value="Initiator">Initiator</option>
+                <option value="Controller">Controller</option>
+                <option value="Sentinel">Sentinel</option>
+                <option value="Flex">Flex</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="edit-player-nationality">Nationality:</label>
+              <input type="text" id="edit-player-nationality">
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="edit-player-age">Age:</label>
+              <input type="number" id="edit-player-age" min="16" max="30">
+            </div>
+            <div class="form-group">
+              <label for="edit-player-salary">Salary ($):</label>
+              <input type="number" id="edit-player-salary" min="0" step="1000">
+            </div>
+          </div>
+          
+          <div class="edit-stats-grid">
+            <div class="edit-stat-item">
+              <label for="edit-player-aim">Aim:</label>
+              <input type="range" id="edit-player-aim" min="0" max="100">
+              <span id="edit-player-aim-value"></span>
+            </div>
+            <div class="edit-stat-item">
+              <label for="edit-player-movement">Movement:</label>
+              <input type="range" id="edit-player-movement" min="0" max="100">
+              <span id="edit-player-movement-value"></span>
+            </div>
+            <div class="edit-stat-item">
+              <label for="edit-player-gamesense">Game Sense:</label>
+              <input type="range" id="edit-player-gamesense" min="0" max="100">
+              <span id="edit-player-gamesense-value"></span>
+            </div>
+            <div class="edit-stat-item">
+              <label for="edit-player-clutch">Clutch:</label>
+              <input type="range" id="edit-player-clutch" min="0" max="100">
+              <span id="edit-player-clutch-value"></span>
+            </div>
+            <div class="edit-stat-item">
+              <label for="edit-player-aggression">Aggression:</label>
+              <input type="range" id="edit-player-aggression" min="0" max="100">
+              <span id="edit-player-aggression-value"></span>
+            </div>
+            <div class="edit-stat-item">
+              <label for="edit-player-utility">Utility:</label>
+              <input type="range" id="edit-player-utility" min="0" max="100">
+              <span id="edit-player-utility-value"></span>
+            </div>
+            <div class="edit-stat-item">
+              <label for="edit-player-mental">Mental:</label>
+              <input type="range" id="edit-player-mental" min="0" max="100">
+              <span id="edit-player-mental-value"></span>
+            </div>
+            <div class="edit-stat-item">
+              <label for="edit-player-teamwork">Teamwork:</label>
+              <input type="range" id="edit-player-teamwork" min="0" max="100">
+              <span id="edit-player-teamwork-value"></span>
+            </div>
+            <div class="edit-stat-item">
+              <label for="edit-player-consistency">Consistency:</label>
+              <input type="range" id="edit-player-consistency" min="0" max="100">
+              <span id="edit-player-consistency-value"></span>
+            </div>
+            <div class="edit-stat-item">
+              <label for="edit-player-potential">Potential:</label>
+              <input type="range" id="edit-player-potential" min="0" max="100">
+              <span id="edit-player-potential-value"></span>
+            </div>
+          </div>
+          
+          <button type="submit" class="btn-save">Save Changes</button>
+        </form>
+      </div>
+    </div>
+
+    <div id="career-players" class="content-section hidden">
+      <h2>Players Hub</h2>
+      <div id="players-hub-content"></div>
+    </div>
+  </div>
+  <script type="module" src="src/main.jsx"></script>
+</body>
+</html>
