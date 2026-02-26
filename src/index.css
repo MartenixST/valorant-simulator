@@ -1,0 +1,19 @@
+@import "tailwindcss";
+
+@theme {
+  --color-val-red: #ff4655;
+  --color-val-red-dark: #e84150;
+  --color-val-black: #0f1923;
+  --color-val-dark-grey: #1c2734;
+  --color-val-light-grey: #e0e0e0;
+  --color-val-blue: #009FE3;
+
+  --font-valorant: 'Valorant', sans-serif;
+}
+
+/* Custom Utilities */
+@layer utilities {
+  .text-shadow {
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+  }
+}

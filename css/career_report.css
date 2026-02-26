@@ -1,0 +1,117 @@
+
+/* Weekly Report Styling */
+.weekly-report {
+  font-family: var(--font-body);
+  color: #fff;
+}
+
+.report-header {
+  border-bottom: 1px solid var(--v-red);
+  padding-bottom: 10px;
+  margin-bottom: 20px;
+}
+
+.report-header h3 {
+  font-family: var(--font-v);
+  color: var(--v-red);
+  margin: 0;
+  font-size: 1.5rem;
+  text-transform: uppercase;
+}
+
+.report-subtitle {
+  color: #aaa;
+  font-size: 0.9rem;
+  margin-top: 5px;
+}
+
+.report-section {
+  margin-bottom: 25px;
+  background: rgba(0, 0, 0, 0.2);
+  padding: 15px;
+  border-radius: 8px;
+}
+
+.report-section h4 {
+  color: var(--v-red);
+  font-family: var(--font-v);
+  text-transform: uppercase;
+  margin-top: 0;
+  margin-bottom: 15px;
+  border-left: 3px solid var(--v-red);
+  padding-left: 10px;
+}
+
+.match-result-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  margin-bottom: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+}
+
+.match-team {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+}
+
+.match-team.winner {
+  font-weight: bold;
+  color: #fff;
+}
+
+.match-team.loser {
+  color: #aaa;
+  justify-content: flex-end;
+}
+
+.match-score {
+  font-family: var(--font-mono);
+  font-weight: bold;
+  padding: 0 15px;
+  color: var(--v-red);
+}
+
+.team-logo-small {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+}
+
+.roster-change-item {
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.roster-change-item:last-child {
+  border-bottom: none;
+}
+
+.kickoff-qualified-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 15px;
+}
+
+.qualified-team {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.qualified-region {
+  font-family: var(--font-v);
+  color: #aaa;
+  font-size: 0.8rem;
+  margin-bottom: 5px;
+}

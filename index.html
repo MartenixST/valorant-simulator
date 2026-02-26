@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Valorant Career Simulator</title>
+  <meta name="description" content="Manage a Valorant team, simulate matches, scout players, and build your legacy." />
+  <meta name="theme-color" content="#ff4655" />
+  <meta property="og:title" content="Valorant Career Simulator" />
+  <meta property="og:description" content="Build your team, simulate matches, and rise through the ranks." />
+  <meta property="og:type" content="website" />
+  <meta property="og:image" content="assets/valorant_background.jpg" />
+  <link rel="icon" href="assets/team_logos/sentinels.png" />
+  <link rel="preload" as="image" href="assets/valorant_background.jpg" />
+  <link rel="stylesheet" href="css/variables.css">
+  <link rel="stylesheet" href="css/kickoff.css">
+  <link rel="stylesheet" href="css/regular_season.css">
+  
+  <!-- Tailwind CSS -->
+  <link rel="stylesheet" href="/src/index.css">
+</head>
+<body class="bg-val-black text-val-light-grey font-sans min-h-screen flex flex-col text-left">
+  <a class="sr-only focus:not-sr-only focus:absolute focus:top-0 focus:left-0 bg-val-red text-white p-2 z-50" href="#main">Skip to content</a>
+  
+  <header class="site-header sticky top-0 z-40 bg-val-black/95 backdrop-blur-sm border-b border-white/10">
+    <div class="max-w-7xl mx-auto px-4 py-4 flex flex-col md:flex-row items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 bg-val-red rounded-lg flex items-center justify-center shadow-[0_0_15px_rgba(255,70,85,0.4)]">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+          </svg>
+        </div>
+        <h1 class="app-title font-valorant tracking-wider text-2xl text-val-red">Valorant Career Simulator</h1>
+      </div>
+      
+      <nav class="top-nav flex items-center gap-2">
+        <a href="index.html" class="active text-val-red font-bold">Home</a>
+        <a href="career_entry.html" class="hover:text-val-red transition-colors">Career</a>
+        <a href="customs.html" class="hover:text-val-red transition-colors">Customs</a>
+        <a href="players.html" class="hover:text-val-red transition-colors">Players</a>
+        <a href="standings.html" class="hover:text-val-red transition-colors">Standings</a>
+        <a href="wiki.html" class="hover:text-val-red transition-colors">Wiki</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main" class="flex-1 w-full">
+    <section class="relative h-[500px] flex items-center justify-center overflow-hidden">
+      <div class="absolute inset-0 z-0">
+        <img src="assets/valorant_background.jpg" alt="Valorant Background" class="w-full h-full object-cover opacity-30">
+        <div class="absolute inset-0 bg-gradient-to-b from-val-black/50 via-val-black/50 to-val-black"></div>
+      </div>
+      
+      <div class="relative z-10 text-center px-4 max-w-4xl mx-auto">
+        <h2 class="text-5xl md:text-7xl font-bold font-valorant text-white mb-6 tracking-wider text-shadow">Build Your Team.<br>Chase Glory.</h2>
+        <p class="text-xl text-gray-300 mb-8 max-w-2xl mx-auto">Start a career, scrim in customs, scout players, and browse the wiki.</p>
+        <div class="flex flex-col sm:flex-row gap-4 justify-center">
+          <a class="bg-val-red hover:bg-val-red-dark text-white font-bold py-3 px-8 rounded-md transition-colors shadow-[0_0_15px_rgba(255,70,85,0.4)]" href="career_entry.html">Start Career</a>
+          <a class="bg-transparent border border-white/30 hover:bg-white/10 text-white font-bold py-3 px-8 rounded-md transition-colors backdrop-blur-sm" href="customs.html">Scrim in Customs</a>
+        </div>
+      </div>
+    </section>
+
+    <section class="max-w-7xl mx-auto px-4 py-16">
+      <h2 id="modes-heading" class="sr-only">Game Modes</h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <a href="career_entry.html" class="group bg-val-dark-grey border border-white/5 rounded-xl p-6 hover:border-val-red/50 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl">
+          <div class="h-12 w-12 bg-val-red/10 rounded-lg flex items-center justify-center mb-4 group-hover:bg-val-red transition-colors">
+            <span class="text-2xl">🏆</span>
+          </div>
+          <h3 class="text-xl font-bold text-white mb-2 font-valorant tracking-wide group-hover:text-val-red transition-colors">Career Mode</h3>
+          <p class="text-gray-400 group-hover:text-gray-300">Manage roster, simulate weeks, and rise through the ranks.</p>
+        </a>
+        
+        <a href="customs.html" class="group bg-val-dark-grey border border-white/5 rounded-xl p-6 hover:border-val-red/50 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl">
+          <div class="h-12 w-12 bg-val-blue/10 rounded-lg flex items-center justify-center mb-4 group-hover:bg-val-blue transition-colors">
+            <span class="text-2xl">⚔️</span>
+          </div>
+          <h3 class="text-xl font-bold text-white mb-2 font-valorant tracking-wide group-hover:text-val-blue transition-colors">Customs</h3>
+          <p class="text-gray-400 group-hover:text-gray-300">Quick matches for testing strategies and player builds.</p>
+        </a>
+        
+        <a href="players.html" class="group bg-val-dark-grey border border-white/5 rounded-xl p-6 hover:border-val-red/50 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl">
+          <div class="h-12 w-12 bg-green-500/10 rounded-lg flex items-center justify-center mb-4 group-hover:bg-green-500 transition-colors">
+            <span class="text-2xl">👥</span>
+          </div>
+          <h3 class="text-xl font-bold text-white mb-2 font-valorant tracking-wide group-hover:text-green-500 transition-colors">Players Hub</h3>
+          <p class="text-gray-400 group-hover:text-gray-300">Scout free agents and sign the next generation of talent.</p>
+        </a>
+        
+        <a href="standings.html" class="group bg-val-dark-grey border border-white/5 rounded-xl p-6 hover:border-val-red/50 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl">
+          <div class="h-12 w-12 bg-yellow-500/10 rounded-lg flex items-center justify-center mb-4 group-hover:bg-yellow-500 transition-colors">
+            <span class="text-2xl">📊</span>
+          </div>
+          <h3 class="text-xl font-bold text-white mb-2 font-valorant tracking-wide group-hover:text-yellow-500 transition-colors">Standings</h3>
+          <p class="text-gray-400 group-hover:text-gray-300">Track league progress and see who dominates the circuit.</p>
+        </a>
+        
+        <a href="match_simulation.html" class="group bg-val-dark-grey border border-white/5 rounded-xl p-6 hover:border-val-red/50 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl">
+          <div class="h-12 w-12 bg-purple-500/10 rounded-lg flex items-center justify-center mb-4 group-hover:bg-purple-500 transition-colors">
+            <span class="text-2xl">🔴</span>
+          </div>
+          <h3 class="text-xl font-bold text-white mb-2 font-valorant tracking-wide group-hover:text-purple-500 transition-colors">Live Simulation</h3>
+          <p class="text-gray-400 group-hover:text-gray-300">Watch matches unfold in real-time with detailed play-by-play.</p>
+        </a>
+        
+        <a href="wiki.html" class="group bg-val-dark-grey border border-white/5 rounded-xl p-6 hover:border-val-red/50 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl">
+          <div class="h-12 w-12 bg-val-red/10 rounded-lg flex items-center justify-center mb-4 group-hover:bg-val-red transition-colors">
+            <span class="text-2xl">📚</span>
+          </div>
+          <h3 class="text-xl font-bold text-white mb-2 font-valorant tracking-wide group-hover:text-val-red transition-colors">Wiki</h3>
+          <p class="text-gray-400 group-hover:text-gray-300">Deep dive into game systems, agent roles, and the current meta.</p>
+        </a>
+      </div>
+    </section>
+
+    <section class="bg-val-dark-grey border-y border-white/5 py-16" aria-labelledby="features-heading">
+      <div class="max-w-7xl mx-auto px-4">
+        <h2 id="features-heading" class="text-3xl font-bold text-center text-white mb-12 font-valorant tracking-wide">Why play the Simulator?</h2>
+        <div class="grid md:grid-cols-3 gap-8">
+          <div class="text-center p-6">
+            <div class="text-4xl mb-4">🎮</div>
+            <h4 class="text-xl font-bold text-white mb-2">Deep Simulation</h4>
+            <p class="text-gray-400">Advanced algorithms calculate every round based on player skill, agent synergy, and team morale.</p>
+          </div>
+          <div class="text-center p-6">
+            <div class="text-4xl mb-4">📈</div>
+            <h4 class="text-xl font-bold text-white mb-2">Roster Management</h4>
+            <p class="text-gray-400">Scout talent, manage contracts, and build a world-class team from the ground up.</p>
+          </div>
+          <div class="text-center p-6">
+            <div class="text-4xl mb-4">🏆</div>
+            <h4 class="text-xl font-bold text-white mb-2">Global Circuit</h4>
+            <p class="text-gray-400">Compete in various tournaments and climb the international rankings to become the best.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer mt-auto border-t border-white/10 bg-val-black py-8">
+    <div class="footer-content max-w-7xl mx-auto px-4 text-center">
+      <p class="text-gray-400 mb-2">&copy; 2026 Valorant Career Simulator. All rights reserved.</p>
+      <small class="text-gray-600 block mb-4">Alpha build 0.8.2 — Features and data subject to change.</small>
+      <nav class="footer-nav flex justify-center gap-6">
+        <a href="wiki.html#patch-notes" class="text-sm text-gray-500 hover:text-val-red transition-colors">Patch Notes</a>
+        <a href="wiki.html#credits" class="text-sm text-gray-500 hover:text-val-red transition-colors">Credits</a>
+      </nav>
+    </div>
+  </footer>
+</body>
+</html>

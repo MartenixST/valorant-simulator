@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Match Simulator</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <main>
+    <h1>Match Simulation</h1>
+    <div class="match-header">
+      <h2 id="team1-name">Team 1</h2>
+      <span>vs</span>
+      <h2 id="team2-name">Team 2</h2>
+    </div>
+    <div id="match-log"></div>
+    <button onclick="simulateMatch()">Start BO3</button>
+    <button onclick="window.location='index.html'">Back to Hub</button>
+  </main>
+  <script src="src/match.js" type="module"></script>
+</body>
+</html>

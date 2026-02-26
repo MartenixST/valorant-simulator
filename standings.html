@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Standings - Valorant Career Simulator</title>
+  <link rel="icon" href="assets/team_logos/sentinels.png" />
+  <link rel="stylesheet" href="css/variables.css">
+  
+  <!-- Tailwind CSS -->
+  <link rel="stylesheet" href="/src/index.css">
+  <style>
+    body.embed .site-header { display: none; }
+    body.embed main { padding-top: 1rem; }
+    body.embed .standings-title { display: none; }
+    body.embed .standings-header-container { border-bottom: none; margin-bottom: 1rem; padding-bottom: 0; }
+    body.embed .site-footer { display: none; }
+  </style>
+  
+  <script src="src/standings.js" type="module"></script>
+  <script>
+    (function() {
+      const p = new URLSearchParams(window.location.search);
+      const v = p.get('embed');
+      if (v === '1' || v === 'true') {
+        document.addEventListener('DOMContentLoaded', function() {
+          document.body.classList.add('embed');
+        });
+      }
+    })();
+  </script>
+</head>
+<body class="bg-val-black text-val-light-grey font-sans min-h-screen flex flex-col text-left">
+  
+  <header class="site-header sticky top-0 z-40 bg-val-black/95 backdrop-blur-sm border-b border-white/10">
+    <div class="max-w-7xl mx-auto px-4 py-4 flex flex-col md:flex-row items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 bg-val-red rounded-lg flex items-center justify-center shadow-[0_0_15px_rgba(255,70,85,0.4)]">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+          </svg>
+        </div>
+        <h1 class="app-title font-valorant tracking-wider text-2xl text-val-red">Valorant Career Simulator</h1>
+      </div>
+      
+      <nav class="top-nav flex items-center gap-2">
+        <a href="index.html" class="hover:text-val-red transition-colors">Home</a>
+        <a href="career_entry.html" class="hover:text-val-red transition-colors">Career</a>
+        <a href="customs.html" class="hover:text-val-red transition-colors">Customs</a>
+        <a href="players.html" class="hover:text-val-red transition-colors">Players</a>
+        <a href="standings.html" class="active text-val-red font-bold">Standings</a>
+        <a href="wiki.html" class="hover:text-val-red transition-colors">Wiki</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 py-8 md:py-12">
+    <div class="standings-header-container flex flex-col md:flex-row justify-between items-end mb-8 border-b border-white/10 pb-4">
+      <div class="standings-title">
+        <h2 class="text-4xl font-bold text-white mb-2 font-valorant tracking-wider">VCT Standings</h2>
+        <p class="text-gray-400">Season 1 | 2025</p>
+      </div>
+      
+      <div class="flex gap-2 mt-4 md:mt-0" id="region-tabs">
+        <button class="region-tab active px-4 py-2 rounded bg-val-red text-white font-bold transition-colors" data-region="Americas" onclick="switchRegion('Americas')">Americas</button>
+        <button class="region-tab px-4 py-2 rounded bg-val-dark-grey text-gray-400 hover:text-white hover:bg-white/5 transition-colors" data-region="EMEA" onclick="switchRegion('EMEA')">EMEA</button>
+        <button class="region-tab px-4 py-2 rounded bg-val-dark-grey text-gray-400 hover:text-white hover:bg-white/5 transition-colors" data-region="Pacific" onclick="switchRegion('Pacific')">Pacific</button>
+        <button class="region-tab px-4 py-2 rounded bg-val-dark-grey text-gray-400 hover:text-white hover:bg-white/5 transition-colors" data-region="China" onclick="switchRegion('China')">China</button>
+      </div>
+    </div>
+
+    <div class="bg-val-dark-grey rounded-xl border border-white/5 overflow-hidden shadow-xl">
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="bg-black/30 text-gray-400 text-sm uppercase tracking-wider border-b border-white/5">
+              <th class="p-4 w-16 text-center">#</th>
+              <th class="p-4">Team</th>
+              <th class="p-4">W - L</th>
+              <th class="p-4">Win %</th>
+              <th class="p-4">Points</th>
+              <th class="p-4 text-center">Streak</th>
+            </tr>
+          </thead>
+          <tbody id="standings-body" class="divide-y divide-white/5">
+            <!-- Standings injected here -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <!-- Roster Modal -->
+  <div id="roster-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 transition-all duration-300">
+    <div class="bg-val-dark-grey rounded-xl border border-white/10 shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col transform transition-all duration-300 scale-95 opacity-0">
+      <div class="p-6 border-b border-white/10 flex justify-between items-center bg-black/20">
+        <div class="flex items-center gap-4">
+          <img id="modal-team-logo" src="" alt="" class="w-12 h-12 object-contain">
+          <h2 id="modal-team-name" class="text-2xl font-bold text-white font-valorant">Team Name</h2>
+        </div>
+        <button class="close-modal text-gray-400 hover:text-white transition-colors">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+      
+      <div class="p-6 overflow-y-auto">
+        <table class="w-full text-left">
+          <thead>
+            <tr class="text-gray-400 text-xs uppercase tracking-wider border-b border-white/10">
+              <th class="pb-3">Player</th>
+              <th class="pb-3">Role</th>
+              <th class="pb-3">Rating</th>
+              <th class="pb-3">Nationality</th>
+            </tr>
+          </thead>
+          <tbody id="roster-body" class="divide-y divide-white/5">
+            <!-- Roster injected here -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <footer class="site-footer mt-auto border-t border-white/10 bg-val-black py-8">
+    <div class="footer-content max-w-7xl mx-auto px-4 text-center">
+      <p class="text-gray-400 mb-2">&copy; 2026 Valorant Career Simulator. All rights reserved.</p>
+      <small class="text-gray-600 block mb-4">Alpha build 0.8.2 — Features and data subject to change.</small>
+      <nav class="footer-nav flex justify-center gap-6">
+        <a href="wiki.html#patch-notes" class="text-sm text-gray-500 hover:text-val-red transition-colors">Patch Notes</a>
+        <a href="wiki.html#credits" class="text-sm text-gray-500 hover:text-val-red transition-colors">Credits</a>
+      </nav>
+    </div>
+  </footer>
+
+  <script>
+    function switchRegion(region) {
+      // Update active tab UI
+      document.querySelectorAll('.region-tab').forEach(tab => {
+        if (tab.dataset.region === region) {
+          tab.classList.remove('bg-val-dark-grey', 'text-gray-400');
+          tab.classList.add('bg-val-red', 'text-white', 'font-bold');
+        } else {
+          tab.classList.add('bg-val-dark-grey', 'text-gray-400');
+          tab.classList.remove('bg-val-red', 'text-white', 'font-bold', 'active');
+        }
+      });
+      
+      // Dispatch event for JS to re-render
+      window.dispatchEvent(new CustomEvent('regionChanged', { detail: { region } }));
+    }
+
+    // Modal close logic
+    function closeRosterModal() {
+        const modal = document.getElementById('roster-modal');
+        const content = modal.querySelector('div'); // The inner content div
+        
+        // Animate out
+        content.classList.remove('scale-100', 'opacity-100');
+        content.classList.add('scale-95', 'opacity-0');
+        
+        setTimeout(() => {
+            modal.classList.add('hidden');
+        }, 300);
+    }
+
+    document.querySelector('.close-modal').addEventListener('click', closeRosterModal);
+    
+    document.getElementById('roster-modal').addEventListener('click', (e) => {
+      if (e.target.id === 'roster-modal') {
+        closeRosterModal();
+      }
+    });
+
+    window.openRosterModal = function() {
+        const modal = document.getElementById('roster-modal');
+        const content = modal.querySelector('div');
+        
+        modal.classList.remove('hidden');
+        
+        // Small delay to allow display:block to apply before animating
+        requestAnimationFrame(() => {
+            content.classList.remove('scale-95', 'opacity-0');
+            content.classList.add('scale-100', 'opacity-100');
+        });
+    }
+  </script>
+</body>
+</html>

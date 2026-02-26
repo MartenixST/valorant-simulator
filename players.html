@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Players Hub - Valorant Career Simulator</title>
+  <link rel="icon" href="assets/team_logos/sentinels.png" />
+  <link rel="stylesheet" href="css/variables.css">
+  
+  <!-- Tailwind CSS -->
+  <link rel="stylesheet" href="/src/index.css">
+  
+  <script src="src/career.js" type="module"></script>
+  <script src="src/players.js" defer type="module"></script>
+  <script src="src/players_ui.js" type="module"></script>
+</head>
+<body class="bg-val-black text-val-light-grey font-sans min-h-screen flex flex-col text-left">
+  
+  <header class="site-header sticky top-0 z-40 bg-val-black/95 backdrop-blur-sm border-b border-white/10">
+    <div class="max-w-7xl mx-auto px-4 py-4 flex flex-col md:flex-row items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 bg-val-red rounded-lg flex items-center justify-center shadow-[0_0_15px_rgba(255,70,85,0.4)]">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+          </svg>
+        </div>
+        <h1 class="app-title font-valorant tracking-wider text-2xl text-val-red">Valorant Career Simulator</h1>
+      </div>
+      
+      <nav class="top-nav flex items-center gap-2">
+        <a href="index.html" class="hover:text-val-red transition-colors">Home</a>
+        <a href="career_entry.html" class="hover:text-val-red transition-colors">Career</a>
+        <a href="customs.html" class="hover:text-val-red transition-colors">Customs</a>
+        <a href="players.html" class="active text-val-red font-bold">Players</a>
+        <a href="standings.html" class="hover:text-val-red transition-colors">Standings</a>
+        <a href="wiki.html" class="hover:text-val-red transition-colors">Wiki</a>
+      </nav>
+    </div>
+  </header>
+  
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 py-8">
+    <div class="mb-8">
+      <h2 class="text-3xl font-bold text-white mb-2 font-valorant tracking-wide">VCT Players Hub</h2>
+      <p class="text-gray-400">Scout players, view stats, and manage contracts.</p>
+    </div>
+    
+    <div class="bg-val-dark-grey rounded-xl border border-white/5 p-6 mb-8 shadow-lg">
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        <select id="region-filter" class="bg-val-black border border-white/10 rounded px-4 py-2 text-white focus:border-val-red focus:outline-none transition-colors">
+          <option value="all">All Regions</option>
+          <option value="Americas">Americas</option>
+          <option value="EMEA">EMEA</option>
+          <option value="Pacific">Pacific</option>
+          <option value="China">China</option>
+        </select>
+        <select id="team-filter" class="bg-val-black border border-white/10 rounded px-4 py-2 text-white focus:border-val-red focus:outline-none transition-colors">
+          <option value="all">All Teams</option>
+          <!-- Teams will be populated dynamically -->
+        </select>
+        <select id="year-filter" class="bg-val-black border border-white/10 rounded px-4 py-2 text-white focus:border-val-red focus:outline-none transition-colors">
+          <option value="all">All Years</option>
+          <option value="2025">2025</option>
+          <!-- Add more years as needed -->
+        </select>
+        <select id="player-type-filter" class="bg-val-black border border-white/10 rounded px-4 py-2 text-white focus:border-val-red focus:outline-none transition-colors">
+          <option value="all">All Players</option>
+          <option value="starters">Starters</option>
+          <option value="substitutes">Substitutes</option>
+        </select>
+        <input type="text" id="player-search" placeholder="Search players..." class="bg-val-black border border-white/10 rounded px-4 py-2 text-white focus:border-val-red focus:outline-none transition-colors placeholder-gray-500">
+      </div>
+    </div>
+    
+    <div id="players-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+      <!-- Players will be populated dynamically -->
+      <div class="text-center col-span-full py-12 text-gray-500">
+        Loading players...
+      </div>
+    </div>
+  </main>
+  
+  <div id="player-details-modal" class="modal hidden fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 transition-all duration-300">
+    <div class="modal-content bg-val-dark-grey border border-val-red rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-[0_0_30px_rgba(255,70,85,0.2)] relative transform transition-all duration-300 scale-95 opacity-0">
+      <span class="close-button absolute top-4 right-4 text-gray-400 hover:text-white cursor-pointer text-2xl z-10">&times;</span>
+      <div id="player-details" class="p-6">
+        <!-- Player details will be populated dynamically -->
+      </div>
+    </div>
+  </div>
+  
+  <footer class="site-footer mt-auto border-t border-white/10 bg-val-black py-8">
+    <div class="footer-content max-w-7xl mx-auto px-4 text-center">
+      <p class="text-gray-400 mb-2">&copy; 2026 Valorant Career Simulator. All rights reserved.</p>
+      <small class="text-gray-600 block mb-4">Alpha build 0.8.2 — Features and data subject to change.</small>
+      <nav class="footer-nav flex justify-center gap-6">
+        <a href="wiki.html#patch-notes" class="text-sm text-gray-500 hover:text-val-red transition-colors">Patch Notes</a>
+        <a href="wiki.html#credits" class="text-sm text-gray-500 hover:text-val-red transition-colors">Credits</a>
+      </nav>
+    </div>
+  </footer>
+</body>
+</html>

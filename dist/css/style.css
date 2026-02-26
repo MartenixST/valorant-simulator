@@ -1,0 +1,173 @@
+body {
+  font-family: Arial, sans-serif;
+  background: #0f1923;
+  color: white;
+  text-align: center;
+  padding: 20px;
+}
+
+main {
+  background: #1c2734;
+  padding: 20px;
+  border-radius: 12px;
+  max-width: 700px;
+  margin: auto;
+}
+
+button {
+  background: #ff4655;
+  border: none;
+  padding: 10px 15px;
+  color: white;
+  border-radius: 6px;
+  cursor: pointer;
+  margin: 5px;
+}
+
+button:hover {
+  background: #e84150;
+}
+
+#match-log {
+  background: #111;
+  padding: 15px;
+  margin: 20px 0;
+  text-align: left;
+  max-height: 300px;
+  overflow-y: auto;
+  border-radius: 6px;
+}
+.ai-card {
+  background: #222;
+  padding: 10px;
+  margin: 10px;
+  border-radius: 8px;
+  display: inline-block;
+  width: 180px;
+  text-align: left;
+}
+.ai-card button {
+  width: 100%;
+  margin-top: 5px;
+}
+#training-options button {
+  display: block;
+  margin: 5px 0;
+  padding: 8px;
+  border-radius: 6px;
+  background: #444;
+  color: white;
+  border: none;
+  cursor: pointer;
+}
+#training-options button:hover {
+  background: #666;
+}
+
+#main-menu {
+  text-align: center;
+  margin-top: 50px;
+}
+
+#main-menu button {
+  margin: 10px;
+  padding: 12px 24px;
+  font-size: 16px;
+  border-radius: 8px;
+  background: #202020;
+  color: white;
+  border: 2px solid #444;
+  cursor: pointer;
+}
+
+#main-menu button:hover {
+  background: #444;
+}
+
+/* Layout */
+.career-layout {
+  display: grid;
+  grid-template-columns: 220px 1fr 300px;
+  gap: 20px;
+  width: 100%;
+  max-width: 1400px;
+}
+
+/* Sidebar */
+.sidebar {
+  background: #111;
+  padding: 20px;
+  border-radius: 12px;
+}
+
+.sidebar h2 {
+  margin-bottom: 15px;
+  color: #ff4655;
+}
+
+.sidebar ul {
+  list-style: none;
+}
+
+.sidebar li {
+  margin: 10px 0;
+}
+
+.menu-divider {
+  margin: 10px 0;
+  border: 0;
+  height: 1px;
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+/* Hide game menu items by default */
+.game-menu-item {
+  display: none;
+}
+
+.sidebar a {
+  text-decoration: none;
+  color: #ccc;
+  transition: 0.2s;
+}
+
+.sidebar a:hover {
+  color: #ff4655;
+}
+
+/* Main content */
+.main-content {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.top-container, .bottom-container {
+  background: #181818;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 0 10px rgba(0,0,0,0.4);
+}
+
+/* Right bar */
+.rightbar {
+  background: #111;
+  padding: 20px;
+  border-radius: 12px;
+}
+
+.rightbar h2 {
+  margin: 15px 0;
+  color: #ff4655;
+}
+
+.rightbar ul {
+  list-style: none;
+}
+
+.rightbar li {
+  margin: 8px 0;
+  padding: 6px;
+  background: #222;
+  border-radius: 6px;
+}

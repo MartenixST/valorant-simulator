@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Career Mode - Valorant Career Simulator</title>
+  <link rel="icon" href="assets/team_logos/sentinels.png" />
+  <link rel="stylesheet" href="css/variables.css">
+  
+  <!-- Tailwind CSS -->
+  <link rel="stylesheet" href="/src/index.css">
+</head>
+<body class="bg-val-black text-val-light-grey font-sans min-h-screen flex flex-col text-left">
+  
+  <header class="site-header sticky top-0 z-40 bg-val-black/95 backdrop-blur-sm border-b border-white/10">
+    <div class="max-w-7xl mx-auto px-4 py-4 flex flex-col md:flex-row items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 bg-val-red rounded-lg flex items-center justify-center shadow-[0_0_15px_rgba(255,70,85,0.4)]">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+          </svg>
+        </div>
+        <h1 class="app-title font-valorant tracking-wider text-2xl text-val-red">Valorant Career Simulator</h1>
+      </div>
+      
+      <nav class="top-nav flex items-center gap-2">
+        <a href="index.html" class="hover:text-val-red transition-colors">Home</a>
+        <a href="career_entry.html" class="active text-val-red font-bold">Career</a>
+        <a href="customs.html" class="hover:text-val-red transition-colors">Customs</a>
+        <a href="players.html" class="hover:text-val-red transition-colors">Players</a>
+        <a href="standings.html" class="hover:text-val-red transition-colors">Standings</a>
+        <a href="wiki.html" class="hover:text-val-red transition-colors">Wiki</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 py-12 flex items-center justify-center">
+    <div class="w-full max-w-md">
+      
+      <!-- Career Start -->
+      <div id="career-start" class="content-section bg-val-dark-grey rounded-xl border border-white/5 p-8 shadow-xl text-center">
+        <h2 class="text-3xl font-bold text-white mb-4 font-valorant tracking-wider">Career Mode</h2>
+        <p class="text-gray-400 mb-8">Start your journey as a VCT team manager! Manage rosters, tactics, and lead your team to glory.</p>
+        
+        <div class="space-y-4">
+          <button id="newGameBtn" class="w-full bg-val-red hover:bg-val-red-dark text-white font-bold py-3 px-6 rounded-lg transition-all transform hover:-translate-y-1 shadow-lg flex items-center justify-center gap-2">
+            <span>New Career</span>
+          </button>
+          
+          <button id="loadGameBtn" class="w-full bg-white/5 hover:bg-white/10 text-white font-bold py-3 px-6 rounded-lg transition-all transform hover:-translate-y-1 border border-white/10 flex items-center justify-center gap-2">
+            <span>Load Career</span>
+          </button>
+          
+          <button id="start-tutorial" class="w-full bg-val-dark-grey hover:bg-white/10 text-white font-bold py-3 px-6 rounded-lg transition-all transform hover:-translate-y-1 border border-white/10 flex items-center justify-center gap-2">
+            <span>Tutorial</span>
+          </button>
+          
+          <button id="backToMenuBtn" class="w-full text-gray-500 hover:text-white py-2 px-6 rounded-lg transition-colors text-sm">
+            Back to Main Menu
+          </button>
+        </div>
+      </div>
+
+      <!-- Load Game -->
+      <div id="load-game" class="content-section hidden bg-val-dark-grey rounded-xl border border-white/5 p-8 shadow-xl">
+        <h2 class="text-2xl font-bold text-white mb-6 font-valorant tracking-wider border-b border-white/10 pb-4">Load Save</h2>
+        
+        <div class="max-h-[300px] overflow-y-auto mb-6 pr-2 custom-scrollbar">
+          <ul id="saveList" class="space-y-2">
+            <!-- Saves will be populated here -->
+            <li class="text-gray-500 text-center py-4">Loading saves...</li>
+          </ul>
+        </div>
+        
+        <button id="backToMenuLoadBtn" class="w-full bg-white/5 hover:bg-white/10 text-white py-2 px-6 rounded-lg transition-colors border border-white/10">
+          Back
+        </button>
+      </div>
+
+      <!-- New Game -->
+      <div id="new-game" class="content-section hidden bg-val-dark-grey rounded-xl border border-white/5 p-8 shadow-xl">
+        <h2 class="text-2xl font-bold text-white mb-6 font-valorant tracking-wider border-b border-white/10 pb-4">Create New Career</h2>
+        
+        <div class="space-y-4 mb-6">
+          <div>
+            <label class="block text-gray-400 text-sm mb-2" for="managerName">Manager Name</label>
+            <input type="text" id="managerName" class="w-full bg-val-black border border-white/10 rounded px-4 py-3 text-white focus:border-val-red focus:outline-none transition-colors placeholder-gray-600" placeholder="Enter your name">
+          </div>
+          
+          <div>
+            <label class="block text-gray-400 text-sm mb-2" for="teamPicker">Select Team</label>
+            <div class="relative">
+              <select id="teamPicker" class="w-full bg-val-black border border-white/10 rounded px-4 py-3 text-white focus:border-val-red focus:outline-none transition-colors appearance-none cursor-pointer">
+                <!-- Options populated by JS -->
+              </select>
+              <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-400">
+                <svg class="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="space-y-3">
+          <button id="startGameBtn" class="w-full bg-val-red hover:bg-val-red-dark text-white font-bold py-3 px-6 rounded-lg transition-all transform hover:-translate-y-1 shadow-lg">
+            Start Journey
+          </button>
+          
+          <button id="backToMenuNewBtn" class="w-full bg-white/5 hover:bg-white/10 text-white py-2 px-6 rounded-lg transition-colors border border-white/10">
+            Back
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <footer class="site-footer mt-auto border-t border-white/10 bg-val-black py-8">
+    <div class="footer-content max-w-7xl mx-auto px-4 text-center">
+      <p class="text-gray-400 mb-2">&copy; 2026 Valorant Career Simulator. All rights reserved.</p>
+      <small class="text-gray-600 block mb-4">Alpha build 0.8.2 — Features and data subject to change.</small>
+    </div>
+  </footer>
+
+  <script src="src/career_entry.js" type="module"></script>
+  <script type="module">
+    import { initTutorial } from './src/tutorial.js';
+    document.addEventListener('DOMContentLoaded', initTutorial);
+  </script>
+</body>
+</html>

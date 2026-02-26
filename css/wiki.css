@@ -1,0 +1,86 @@
+/* Wiki specific styles */
+
+.wiki-content {
+    padding: var(--spacing-xl) 0;
+    max-width: 1200px;
+    margin: 0 auto;
+    width: 90%;
+}
+
+.wiki-section {
+    margin-bottom: var(--spacing-2xl);
+    background: var(--surface-card);
+    padding: var(--spacing-xl);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border-color);
+}
+
+.wiki-section h2 {
+    color: var(--primary-color);
+    margin-bottom: var(--spacing-md);
+    font-size: 2rem;
+    border-bottom: 2px solid var(--primary-color);
+    padding-bottom: var(--spacing-sm);
+    display: inline-block;
+}
+
+.wiki-section h3 {
+    color: var(--text-primary);
+    margin-top: var(--spacing-lg);
+    margin-bottom: var(--spacing-sm);
+    font-size: 1.5rem;
+}
+
+.wiki-section p {
+    color: var(--text-secondary);
+    line-height: 1.6;
+    margin-bottom: var(--spacing-md);
+}
+
+.wiki-section ul {
+    list-style-type: disc;
+    padding-left: var(--spacing-xl);
+    margin-bottom: var(--spacing-md);
+    color: var(--text-secondary);
+}
+
+.wiki-section li {
+    margin-bottom: var(--spacing-xs);
+}
+
+.wiki-nav {
+    display: flex;
+    gap: var(--spacing-md);
+    margin-bottom: var(--spacing-xl);
+    flex-wrap: wrap;
+}
+
+.wiki-nav a {
+    color: var(--text-secondary);
+    text-decoration: none;
+    padding: var(--spacing-sm) var(--spacing-md);
+    border-radius: var(--radius-md);
+    background: var(--surface-hover);
+    transition: all 0.2s;
+}
+
+.wiki-nav a:hover,
+.wiki-nav a.active {
+    background: var(--primary-color);
+    color: white;
+}
+
+/* Patch Notes Specifics */
+.patch-version {
+    font-family: monospace;
+    background: var(--surface-hover);
+    padding: 2px 6px;
+    border-radius: 4px;
+    color: var(--text-primary);
+}
+
+.patch-date {
+    color: var(--text-muted);
+    font-size: 0.9em;
+    margin-left: var(--spacing-sm);
+}

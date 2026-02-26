@@ -1,0 +1,282 @@
+.standings-container {
+    padding: 30px;
+    max-width: 1200px;
+    margin: 0 auto;
+    color: #ece8e1;
+    background: radial-gradient(circle at top right, rgba(255, 70, 85, 0.05), transparent),
+                radial-gradient(circle at bottom left, rgba(0, 246, 255, 0.05), transparent);
+    min-height: 100vh;
+}
+
+.standings-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 40px;
+    border-bottom: 2px solid #ff4655;
+    padding-bottom: 15px;
+}
+
+.standings-header h2 {
+    font-family: 'Valorant', sans-serif;
+    text-transform: uppercase;
+    font-size: 36px;
+    margin: 0;
+    color: #ff4655;
+    letter-spacing: 2px;
+}
+
+.region-tabs {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 30px;
+}
+
+.region-tab {
+    background: #1f2326;
+    border: 1px solid #383e42;
+    color: #7e7e7e;
+    padding: 12px 24px;
+    text-transform: uppercase;
+    font-family: 'Valorant', sans-serif;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.3s;
+    letter-spacing: 1px;
+}
+
+.region-tab:hover {
+    color: #ece8e1;
+    border-color: #ff4655;
+}
+
+.region-tab.active {
+    background: #ff4655;
+    color: white;
+    border-color: #ff4655;
+}
+
+.standings-table-container {
+    background: rgba(31, 35, 38, 0.8);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    overflow: hidden;
+    box-shadow: 0 15px 35px rgba(0,0,0,0.5);
+}
+
+.standings-table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+}
+
+.standings-table th {
+    background: rgba(15, 25, 35, 0.9);
+    padding: 15px 20px;
+    text-transform: uppercase;
+    font-size: 12px;
+    letter-spacing: 1px;
+    color: #7e7e7e;
+    border-bottom: 2px solid #383e42;
+}
+
+.standings-table td {
+    padding: 15px 20px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    font-size: 14px;
+    vertical-align: middle;
+}
+
+.standings-table tr:hover {
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.rank-col {
+    width: 60px;
+    font-weight: bold;
+    color: #ff4655;
+    font-size: 18px;
+}
+
+.team-col {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.team-logo {
+    width: 32px;
+    height: 32px;
+    object-fit: contain;
+    filter: drop-shadow(0 0 5px rgba(255,255,255,0.2));
+}
+
+.team-name {
+    font-weight: bold;
+    color: #ece8e1;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    transition: color 0.2s;
+}
+
+.team-col:hover .team-name {
+    color: #ff4655;
+}
+
+.my-team-row .team-name {
+    color: #ff4655;
+}
+
+.record-col {
+    font-family: 'Courier New', monospace;
+    font-weight: bold;
+    color: #00f6ff;
+}
+
+.pts-col {
+    font-weight: bold;
+    color: #ff4655;
+}
+
+.streak-col {
+    font-size: 12px;
+}
+
+.streak-win { color: #00ff88; }
+.streak-loss { color: #ff4655; }
+
+/* Animation for the table rows */
+@keyframes fadeInRow {
+    from { opacity: 0; transform: translateX(-10px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+
+.standings-table tr {
+    animation: fadeInRow 0.3s ease forwards;
+    animation-delay: calc(var(--row-index) * 0.05s);
+    opacity: 0;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.standings-table tr:hover {
+    background: rgba(255, 70, 85, 0.1) !important;
+}
+
+/* Modal Styles */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(15, 25, 35, 0.95);
+    backdrop-filter: blur(8px);
+}
+
+.modal-content {
+    background-color: #1f2326;
+    margin: 5% auto;
+    padding: 0;
+    border: 1px solid #ff4655;
+    width: 80%;
+    max-width: 800px;
+    border-radius: 4px;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.8);
+    overflow: hidden;
+    animation: modalFadeIn 0.3s ease-out;
+}
+
+@keyframes modalFadeIn {
+    from { opacity: 0; transform: translateY(-30px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.modal-header {
+    background: #ff4655;
+    color: white;
+    padding: 20px 30px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.team-info-header {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.modal-team-logo {
+    width: 48px;
+    height: 48px;
+    object-fit: contain;
+    filter: brightness(0) invert(1);
+}
+
+.modal-header h2 {
+    margin: 0;
+    font-family: 'Valorant', sans-serif;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+
+.close-modal {
+    color: white;
+    font-size: 30px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: transform 0.2s;
+}
+
+.close-modal:hover {
+    transform: scale(1.2);
+}
+
+.modal-body {
+    padding: 30px;
+}
+
+.roster-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.roster-table th {
+    text-align: left;
+    color: #7e7e7e;
+    text-transform: uppercase;
+    font-size: 12px;
+    letter-spacing: 1px;
+    padding: 10px 15px;
+    border-bottom: 1px solid #383e42;
+}
+
+.roster-table td {
+    padding: 15px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    color: #ece8e1;
+}
+
+.roster-table tr:hover {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.role-tag {
+    background: rgba(255, 70, 85, 0.1);
+    color: #ff4655;
+    padding: 4px 10px;
+    border-radius: 2px;
+    font-size: 11px;
+    text-transform: uppercase;
+    font-weight: bold;
+}
+
+.rating-value {
+    font-weight: bold;
+    color: #00f6ff;
+}
+
