@@ -5,6 +5,7 @@
   <title>Career Mode - Valorant Career Simulator</title>
   <link rel="icon" href="assets/team_logos/sentinels.png" />
   <link rel="stylesheet" href="css/variables.css">
+  <link rel="stylesheet" href="css/career_entry.css">
   
   <!-- Tailwind CSS -->
   <link rel="stylesheet" href="/src/index.css">
@@ -34,7 +35,7 @@
   </header>
 
   <main class="flex-1 max-w-7xl w-full mx-auto px-4 py-12 flex items-center justify-center">
-    <div class="w-full max-w-md">
+    <div class="w-full max-w-4xl">
       
       <!-- Career Start -->
       <div id="career-start" class="content-section bg-val-dark-grey rounded-xl border border-white/5 p-8 shadow-xl text-center">
@@ -81,20 +82,15 @@
         <h2 class="text-2xl font-bold text-white mb-6 font-valorant tracking-wider border-b border-white/10 pb-4">Create New Career</h2>
         
         <div class="space-y-4 mb-6">
-          <div>
+          <div class="manager-input-container">
             <label class="block text-gray-400 text-sm mb-2" for="managerName">Manager Name</label>
             <input type="text" id="managerName" class="w-full bg-val-black border border-white/10 rounded px-4 py-3 text-white focus:border-val-red focus:outline-none transition-colors placeholder-gray-600" placeholder="Enter your name">
           </div>
           
-          <div>
-            <label class="block text-gray-400 text-sm mb-2" for="teamPicker">Select Team</label>
-            <div class="relative">
-              <select id="teamPicker" class="w-full bg-val-black border border-white/10 rounded px-4 py-3 text-white focus:border-val-red focus:outline-none transition-colors appearance-none cursor-pointer">
-                <!-- Options populated by JS -->
-              </select>
-              <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-400">
-                <svg class="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
-              </div>
+          <div class="team-selection-container">
+            <label class="block text-gray-400 text-sm mb-2">Select Team</label>
+            <div id="teamPickerContainer">
+              <!-- Team grid will be populated by JS -->
             </div>
           </div>
         </div>

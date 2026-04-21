@@ -27,13 +27,39 @@
 }
 
 .rs-column h3 {
-    font-size: 1rem;
-    margin-top: 20px;
-    margin-bottom: 10px;
-    color: #ccc;
+    font-size: 1.1rem;
+    margin-top: 24px;
+    margin-bottom: 12px;
+    color: #fff;
     display: flex;
     justify-content: space-between;
     align-items: center;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+}
+
+.rs-column h3 span.qualify-badge {
+    font-size: 0.65em;
+    color: #4caf50;
+    background: rgba(76, 175, 80, 0.15);
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-weight: 700;
+    border: 1px solid rgba(76, 175, 80, 0.3);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-left: auto;
+}
+
+/* Center align numeric columns */
+.rs-table td:nth-child(3),
+.rs-table td:nth-child(4),
+.rs-table td:nth-child(5),
+.rs-table td:nth-child(6),
+.rs-table td:nth-child(7),
+.rs-table td:nth-child(8) {
+    text-align: center;
 }
 
 /* RS Standings Table */
@@ -45,18 +71,41 @@
 }
 
 .rs-table th {
-    text-align: left;
-    padding: 10px;
-    background: rgba(255, 255, 255, 0.05);
-    color: #aaa;
-    font-weight: 600;
+    text-align: center;
+    padding: 10px 6px;
+    background: rgba(255, 255, 255, 0.08);
+    color: #8b9dc3;
+    font-weight: 700;
     text-transform: uppercase;
-    font-size: 0.8rem;
+    font-size: 0.7rem;
+    letter-spacing: 0.3px;
+    border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+    white-space: nowrap;
+}
+
+/* First column (team name) left aligned */
+.rs-table th:nth-child(2) {
+    text-align: left;
 }
 
 .rs-table td {
-    padding: 10px;
+    padding: 10px 6px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    transition: background 0.2s;
+    white-space: nowrap;
+}
+
+.rs-table tbody tr:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+/* Alternating row colors */
+.rs-table tbody tr:nth-child(even) {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.rs-table tbody tr:nth-child(even):hover {
+    background: rgba(255, 255, 255, 0.06);
 }
 
 .rs-table tr:last-child td {
@@ -66,18 +115,49 @@
 .rs-table .team-cell {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
     font-weight: 600;
+    font-size: 0.9rem;
 }
 
 .rs-table .team-cell img {
-    width: 24px;
-    height: 24px;
+    width: 22px;
+    height: 22px;
     object-fit: contain;
 }
 
-.rs-table .pos { color: #4caf50; }
-.rs-table .neg { color: #f44336; }
+.rs-table .pos { 
+    color: #4caf50; 
+    font-weight: 700;
+}
+.rs-table .neg { 
+    color: #f44336; 
+    font-weight: 700;
+}
+
+/* Streak/Form column */
+.rs-table td:last-child {
+    font-weight: 700;
+    font-size: 0.85rem;
+    text-align: center !important;
+    vertical-align: middle;
+}
+
+/* Streak badges when class is on td */
+.rs-table td:last-child.pos {
+    background: rgba(76, 175, 80, 0.15);
+    color: #4caf50;
+}
+
+.rs-table td:last-child.neg {
+    background: rgba(244, 67, 54, 0.15);
+    color: #f44336;
+}
+
+/* Ensure dash is centered */
+.rs-table td:last-child:not(.pos):not(.neg) {
+    color: #888;
+}
 
 /* Highlight user team */
 .rs-table tr.my-team {
@@ -87,7 +167,42 @@
 
 .rs-table tr.playoff-spot td:first-child {
     border-left: 3px solid #4caf50;
-    padding-left: 7px; /* Adjust for border width */
+    padding-left: 1px;
+}
+
+/* Rank styling with badges for top 3 */
+.rs-table td:first-child,
+.rs-table th:first-child {
+    font-weight: 800;
+    font-size: 0.95rem;
+    color: #fff;
+    text-align: center !important;
+    width: 32px;
+    padding-left: 4px;
+    padding-right: 4px;
+}
+
+/* Top 3 rank badges */
+.rs-table tr:nth-child(1) td:first-child {
+    color: #FFD700;
+    text-shadow: 0 0 10px rgba(255, 215, 0, 0.3);
+}
+
+.rs-table tr:nth-child(2) td:first-child {
+    color: #C0C0C0;
+}
+
+.rs-table tr:nth-child(3) td:first-child {
+    color: #CD7F32;
+}
+
+/* Eliminated teams styling (bottom 2) */
+.rs-table tr:nth-last-child(-n+2):not(.playoff-spot) {
+    opacity: 0.85;
+}
+
+.rs-table tr:nth-last-child(-n+2):not(.playoff-spot) td {
+    color: #888;
 }
 
 /* RS Match List */
@@ -288,6 +403,15 @@
 .rs-team-slot.my-team {
     background: rgba(255, 70, 85, 0.15);
     border-left-color: var(--rs-primary);
+}
+
+.rs-team-slot.winner {
+    background: rgba(76, 175, 80, 0.2);
+    border-left-color: #4caf50;
+}
+
+.rs-team-slot.winner span {
+    color: #4caf50;
 }
 
 .rs-team-slot img {

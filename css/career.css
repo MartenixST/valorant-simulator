@@ -357,7 +357,7 @@ body {
  input, select { 
    padding: 8px 12px; 
    margin: 10px 0; 
-   width: 250px; 
+   width: 130px; 
    border-radius: var(--border-radius-sm); 
    border: 1px solid var(--glass-border); 
    background: var(--glass-bg-light);
