@@ -1,5 +1,5 @@
 import { teams, teamLogos } from './teams.js';
-import { Player, PlayerRating } from "./simulation.js";
+import { Player, PlayerRating, Strategy } from "./simulation.js";
 import { realPlayers } from './real_players.js';
 import { generatePlayer, generatePlayersForRegion as genPlayersRegion, generatePlayersForTeam, resetRegionalEliteCount } from './players.js';
 
@@ -7,6 +7,7 @@ const API_BASE_URL = 'http://localhost:5000/api';
 
 export function saveKickoffState(st, region = "Americas", saveId = null) {
   const key = saveId ? `valorantKickoffState_${region}_${saveId}` : `valorantKickoffState_${region}`;
+  console.log(`saveKickoffState: Saving to key "${key}" with ${Object.keys(st.series || {}).length} matches`);
   
   // OPTIMIZATION: Before saving, clean up any old kickoff states from other saves to free up space
   if (saveId) {
@@ -30,8 +31,15 @@ export function saveKickoffState(st, region = "Americas", saveId = null) {
     if (st && st.series) {
       const seriesIds = Object.keys(st.series);
       seriesIds.forEach((id) => {
-        // Keep only essential result info, remove stats/details if we're desperate
+        // ✅ FIX 2 (IMPORTANT): Store minimal result instead of deleting everything
         if (st.series[id].mapResults) {
+          const result = st.series[id].mapResults;
+          st.series[id].result = {
+            winner: result.winner,
+            score: result.score,
+            winnerId: result.winnerId,
+            loserId: result.loserId
+          };
           delete st.series[id].mapResults;
         }
         if (st.series[id].playerStats) {
@@ -72,6 +80,7 @@ export function saveKickoffState(st, region = "Americas", saveId = null) {
 export function getKickoffState(region = "Americas", saveId = null) {
   const key = saveId ? `valorantKickoffState_${region}_${saveId}` : `valorantKickoffState_${region}`;
   const storedState = localStorage.getItem(key);
+  console.log(`getKickoffState: Loading from key "${key}" - ${storedState ? 'FOUND' : 'NOT FOUND'}`);
   const defaultState = {
     region: region,
     series: {},
@@ -92,11 +101,47 @@ export function getKickoffState(region = "Americas", saveId = null) {
   
   try {
     const parsed = JSON.parse(storedState);
-    return { ...defaultState, ...parsed };
+    // ✅ FIX: Deep merge to preserve series data (shallow merge wipes it)
+    return {
+      ...defaultState,
+      ...parsed,
+      series: parsed.series || defaultState.series
+    };
   } catch (e) {
     console.error("Error parsing kickoff state:", e);
     return defaultState;
   }
+}
+
+export function clearKickoffState(region = "Americas", saveId = null) {
+  const key = saveId ? `valorantKickoffState_${region}_${saveId}` : `valorantKickoffState_${region}`;
+  console.log(`clearKickoffState: Clearing key "${key}"`);
+  localStorage.removeItem(key);
+}
+
+// Helper to save championship points separately (avoiding quota issues)
+export function saveChampionshipPoints(points, saveId = null) {
+  const key = saveId ? `valorantChampionshipPoints_${saveId}` : 'valorantChampionshipPoints';
+  try {
+    localStorage.setItem(key, JSON.stringify(points));
+    console.log(`saveChampionshipPoints: Saved ${Object.keys(points).length} team points`);
+  } catch (e) {
+    console.error('saveChampionshipPoints: Failed to save', e);
+  }
+}
+
+// Helper to load championship points
+export function loadChampionshipPoints(saveId = null) {
+  const key = saveId ? `valorantChampionshipPoints_${saveId}` : 'valorantChampionshipPoints';
+  const stored = localStorage.getItem(key);
+  if (stored) {
+    try {
+      return JSON.parse(stored);
+    } catch (e) {
+      console.error('loadChampionshipPoints: Failed to parse', e);
+    }
+  }
+  return {};
 }
 
 export function getSafeTeamByName(name) {
@@ -255,10 +300,22 @@ export function createNewSave(managerName, teamName, region) {
     const otherTeams = teams.filter(t => t.name !== teamName);
     const otherTeamsPlayers = otherTeams.flatMap(t => generatePlayersForTeam(t.name, t.region, t.id, t.power));
 
-    // Generate random budgets for EVERY team (600k - 1.4m)
+    // Calculate budget based on player salaries + room for upgrades
+    const teamSalary = teamPlayers.reduce((sum, p) => sum + (p.salary || p.marketValue || 50000), 0);
+    // Add 30-60% extra buffer for upgrades (randomized per career)
+    const upgradeBuffer = 1.3 + (Math.random() * 0.3); // 1.3 to 1.6 multiplier
+    const calculatedBudget = Math.round(teamSalary * upgradeBuffer / 1000) * 1000; // Round to nearest 1000
+
+    // Generate random budgets for AI teams (600k - 1.4m)
     const teamBudgets = {};
+    const teamStrategies = {};
     teams.forEach(t => {
-        teamBudgets[String(t.id)] = Math.floor(Math.random() * (1400000 - 600000 + 1)) + 600000;
+        if (String(t.id) === String(selectedTeam.id)) {
+            teamBudgets[String(t.id)] = calculatedBudget;
+        } else {
+            teamBudgets[String(t.id)] = Math.floor(Math.random() * (1400000 - 600000 + 1)) + 600000;
+        }
+        teamStrategies[String(t.id)] = Strategy.generateRandom();
     });
 
     const allPlayers = [...teamPlayers, ...freeAgents, ...otherTeamsPlayers];
@@ -280,6 +337,7 @@ export function createNewSave(managerName, teamName, region) {
         week: 1,
         budget: teamBudgets[String(teamId)] || 1000000,
         teamBudgets: teamBudgets,
+        strategies: teamStrategies,
         players: allPlayers,
         pendingOffers: [],
         stats: { wins: 0, losses: 0 },
@@ -291,7 +349,7 @@ export function createNewSave(managerName, teamName, region) {
         },
         tutorialPending: true // Flag to prompt for tutorial on first load
     };
-    saveKickoffState(newSave.kickoffState, newSave.id);
+    saveKickoffState(newSave.kickoffState, newSave.region, newSave.id);
     return newSave;
 }
 
@@ -370,28 +428,42 @@ export async function loadCareerAsync() {
         return null;
     }
 
-    // Function to try loading a specific ID
+    // Function to try loading a specific ID - NOW checks localStorage FIRST
     const tryLoad = async (id) => {
         console.log(`tryLoad: Attempting to load ID "${id}"`);
+        
+        // 1. Try localStorage FIRST (primary storage)
+        const localSave = localStorage.getItem(`save_${id}`);
+        if (localSave) {
+            console.log(`tryLoad: found ID "${id}" in localStorage (PRIMARY)`);
+            const parsed = JSON.parse(localSave);
+            // Check if localStorage has playoffs data
+            if (parsed.regularSeason?.playoffs?.Americas?.upper?.semifinals?.[0]) {
+                const sf1 = parsed.regularSeason.playoffs.Americas.upper.semifinals[0];
+                console.log(`LOCAL STORAGE SF1: team1=${sf1.team1}, team2=${sf1.team2}, winner=${sf1.winner}`);
+            }
+            return parsed;
+        }
+        
+        // 2. Fall back to API only if localStorage doesn't have it
         try {
             const response = await fetch(`${API_BASE_URL}/saves/${id}`);
             console.log(`tryLoad: API response status for "${id}":`, response.status);
             if (response.ok) {
                 const foundSave = await response.json();
-                console.log(`tryLoad: successfully loaded ID "${id}" from API`);
+                console.log(`tryLoad: successfully loaded ID "${id}" from API (FALLBACK)`);
+                // DEBUG: Check SF1 immediately after API load
+                if (foundSave.regularSeason?.playoffs?.Americas?.upper?.semifinals?.[0]) {
+                    const sf1 = foundSave.regularSeason.playoffs.Americas.upper.semifinals[0];
+                    console.log(`API RAW SF1: team1=${sf1.team1}, team2=${sf1.team2}, winner=${sf1.winner}`);
+                }
                 return foundSave;
             }
         } catch (e) {
             console.error(`tryLoad: Error trying to load ID "${id}" from API:`, e);
         }
         
-        // Try localStorage as fallback for this specific ID
-        const localSave = localStorage.getItem(`save_${id}`);
-        if (localSave) {
-            console.log(`tryLoad: found ID "${id}" in localStorage`);
-            return JSON.parse(localSave);
-        }
-        console.log(`tryLoad: ID "${id}" not found in API or localStorage`);
+        console.log(`tryLoad: ID "${id}" not found in localStorage or API`);
         return null;
     };
 
@@ -465,6 +537,15 @@ export function loadCareer() {
 export function finalizeLoad(foundSave, actualId) {
     if (!foundSave) return null;
 
+    console.log(`=== LOAD DEBUG ===`);
+    console.log(`finalizeLoad: Starting for save ${actualId}`);
+    
+    // DEBUG: Check what we received from API/localStorage (minimal)
+    if (foundSave.regularSeason?.playoffs) {
+        const regions = Object.keys(foundSave.regularSeason.playoffs);
+        console.log(`LOAD: playoffs for ${regions.join(', ')}`);
+    }
+    
     console.log(`finalizeLoad: Starting for save ${actualId}. Initial player count: ${foundSave.players?.length || 0}`);
 
     // 1. Convert all raw player objects to Player instances and Sanitize
@@ -631,10 +712,27 @@ export function finalizeLoad(foundSave, actualId) {
         if (myTeamObj) foundSave.team = myTeamObj.name;
     }
 
+    // CRITICAL FIX: Restore playoffs from root level backup if API dropped nested data
+    if (foundSave._playoffsBackup && foundSave.regularSeason) {
+        console.log("finalizeLoad: Restoring playoffs from root-level backup");
+        foundSave.regularSeason.playoffs = JSON.parse(JSON.stringify(foundSave._playoffsBackup));
+    }
+    
+    // Log loaded playoffs status (minimal)
+    if (foundSave.regularSeason?.playoffs) {
+        const regions = Object.keys(foundSave.regularSeason.playoffs);
+        console.log(`finalizeLoad: Loaded playoffs for ${regions.join(', ')}`);
+    }
+
     // Final kickoff state sync
     const playerTeamData = teams.find(t => String(t.id) === String(foundSave.teamId));
     const playerRegion = playerTeamData ? playerTeamData.region : "Americas";
     const kickoffState = getKickoffState(playerRegion, actualId);
+    
+    // Log kickoff series count (minimal)
+    const seriesCount = Object.keys(kickoffState.series || {}).length;
+    console.log(`POST-LOAD: ${seriesCount} matches in kickoffState`);
+    
     foundSave.kickoffState = kickoffState;
     
     // Sync back to localStorage for consistency, handling quota errors
@@ -772,6 +870,12 @@ export function loadSave(id) {
 export async function saveCareer(updatedSave) {
     if (!updatedSave) return;
 
+    // DEBUG: Check if playoffs data exists before saving (minimal)
+    if (updatedSave.regularSeason?.playoffs) {
+        const regions = Object.keys(updatedSave.regularSeason.playoffs);
+        console.log(`saveCareer: playoffs for ${regions.join(', ')}`);
+    }
+    
     // Safety check: Prevent saving an exploded number of players
     if (updatedSave.players && updatedSave.players.length > 2000) {
         console.warn(`saveCareer: Save has ${updatedSave.players.length} players. Truncating to prevent database bloat.`);
@@ -789,6 +893,69 @@ export async function saveCareer(updatedSave) {
         const playerTeamData = teams.find(t => String(t.id) === String(updatedSave.teamId));
         const playerRegion = playerTeamData ? playerTeamData.region : "Americas";
         updatedSave.kickoffState = getKickoffState(playerRegion, updatedSave.id);
+    }
+    
+    // ✅ FIX 1 (CRITICAL): ALWAYS persist latest kickoff state separately BEFORE deleting
+    if (updatedSave.kickoffState) {
+        const playerTeamData = teams.find(t => String(t.id) === String(updatedSave.teamId));
+        const playerRegion = playerTeamData ? playerTeamData.region : "Americas";
+        
+        // DEBUG: Log series data before saving (minimal)
+        const seriesCount = Object.keys(updatedSave.kickoffState.series || {}).length;
+        console.log(`PRE-SAVE: ${seriesCount} matches in kickoffState`);
+        
+        saveKickoffState(updatedSave.kickoffState, playerRegion, updatedSave.id);
+        console.log("saveCareer: Persisted kickoffState to separate storage");
+    }
+    
+    // Sync kickoffState into playoffs BEFORE saving (minimal logging)
+    if (updatedSave.kickoffState?.series && updatedSave.regularSeason?.playoffs) {
+        Object.values(updatedSave.kickoffState.series).forEach(series => {
+            if (series.id && series.winner) {
+                const regions = Object.keys(updatedSave.regularSeason.playoffs);
+                regions.forEach(region => {
+                    const bracket = updatedSave.regularSeason.playoffs[region];
+                    ['quarterfinals', 'semifinals', 'final'].forEach(round => {
+                        if (bracket.upper?.[round]) {
+                            bracket.upper[round].forEach(match => {
+                                if (match.id === series.id) {
+                                    match.winner = series.winner;
+                                    match.score = series.score || match.score;
+                                    if (series.winnerId) match.winnerId = series.winnerId;
+                                }
+                            });
+                        }
+                    });
+                    ['r1', 'r2', 'r3', 'final'].forEach(round => {
+                        if (bracket.lower?.[round]) {
+                            bracket.lower[round].forEach(match => {
+                                if (match.id === series.id) {
+                                    match.winner = series.winner;
+                                    match.score = series.score || match.score;
+                                    if (series.winnerId) match.winnerId = series.winnerId;
+                                }
+                            });
+                        }
+                    });
+                    if (bracket.grandFinal) {
+                        bracket.grandFinal.forEach(match => {
+                            if (match.id === series.id) {
+                                match.winner = series.winner;
+                                match.score = series.score || match.score;
+                                if (series.winnerId) match.winnerId = series.winnerId;
+                            }
+                        });
+                    }
+                });
+            }
+        });
+    }
+    
+    // CRITICAL FIX: Copy playoffs to root level so API persists it
+    // The API doesn't properly handle deeply nested objects, so we store at root
+    if (updatedSave.regularSeason?.playoffs) {
+        updatedSave._playoffsBackup = JSON.parse(JSON.stringify(updatedSave.regularSeason.playoffs));
+        console.log("saveCareer: Backed up playoffs to root _playoffsBackup");
     }
     
     // Always save to localStorage as a primary backup/source, but handle quota errors
@@ -817,7 +984,18 @@ export async function saveCareer(updatedSave) {
         }
         
         if (saveToStore.regularSeasonMatches && saveToStore.regularSeasonMatches.length > 50) {
+            console.log("saveCareer: Slimming regularSeasonMatches for localStorage backup.");
             saveToStore.regularSeasonMatches = saveToStore.regularSeasonMatches.slice(-50);
+        }
+        
+        if (!saveToStore.regularSeason) {
+            console.warn("saveCareer: regularSeason is missing! This will break playoffs.");
+        } else if (!saveToStore.regularSeason.playoffs) {
+            console.warn("saveCareer: regularSeason.playoffs is missing! Bracket will not persist.");
+        } else {
+            // Log that we have playoffs data
+            const playoffRegions = Object.keys(saveToStore.regularSeason.playoffs);
+            console.log(`saveCareer: Preserving playoffs data for regions: ${playoffRegions.join(', ')}`);
         }
 
         localStorage.setItem(`save_${updatedSave.id}`, JSON.stringify(saveToStore));
@@ -866,7 +1044,11 @@ export async function saveCareer(updatedSave) {
         if (!response.ok) {
             console.warn(`API save error! status: ${response.status}. Data is safe in localStorage.`);
         } else {
-            console.log("Career saved to API successfully.");
+            // Minimal API response check
+            const savedData = await response.json();
+            if (!savedData.regularSeason?.playoffs) {
+                console.warn("API did not persist playoffs");
+            }
         }
     } catch (error) {
         console.error("Error saving career to API, but it's saved in localStorage:", error);

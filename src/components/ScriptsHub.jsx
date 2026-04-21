@@ -191,66 +191,68 @@ const ScriptsHub = ({ activeSave, setActiveSave }) => {
         }
     },
     {
-        id: 'training-camp',
-        title: 'Intensive Training Camp',
-        description: 'Boost all your players\' Aim and Movement by 3.',
-        icon: 'fa-dumbbell',
-        color: '#ff8c00',
+        id: 'attribute-editor',
+        title: 'Advanced Attribute Editor',
+        description: 'Enable the ability to manually edit any player\'s attributes in the league.',
+        icon: 'fa-pen-to-square',
+        color: '#ff4655',
+        type: 'toggle',
         action: () => {
-          const playerTeamId = activeSave.teamId ? String(activeSave.teamId) : null;
-          const playerTeamName = activeSave.team ? String(activeSave.team) : null;
-  
-          const updatedPlayers = activeSave.players.map(p => {
-            const pTeamId = p.teamId !== undefined && p.teamId !== null ? String(p.teamId) : null;
-            const pTeamName = p.team !== undefined && p.team !== null ? String(p.team) : null;
-  
-            if ((playerTeamId && pTeamId === playerTeamId) || (playerTeamName && pTeamName === playerTeamName)) {
-              if (p.rating) {
-                const r = PlayerRating.fromJSON(p.rating);
-                r.aim = Math.min(99, (r.aim || 50) + 3);
-                r.movement = Math.min(99, (r.movement || 50) + 3);
-                p.rating = r;
-              }
-            }
-            return p;
-          });
-  
-          const updatedSave = { ...activeSave, players: updatedPlayers };
-          setActiveSave(updatedSave);
-          saveCareer(updatedSave);
-          showNotification('Training camp finished! Your players look sharper.', 'success');
+            const isEnabled = activeSave.scripts?.['attribute-editor'];
+            const updatedSave = {
+                ...activeSave,
+                scripts: {
+                    ...(activeSave.scripts || {}),
+                    'attribute-editor': !isEnabled
+                }
+            };
+            setActiveSave(updatedSave);
+            saveCareer(updatedSave);
+            showNotification(`Advanced Attribute Editor ${!isEnabled ? 'Enabled' : 'Disabled'}!`, 'info');
         }
     }
   ];
 
   return (
     <div className="scripts-hub">
-      <div className="scripts-header">
-        <h2>Game Scripts & Scenarios</h2>
-        <p>Trigger unique events to influence your career simulation and test different scenarios.</p>
-      </div>
-
-      {notification && (
-        <div className={`script-notification ${notification.type} animated fadeInDown`}>
-          <i className={`fa-solid ${notification.type === 'success' ? 'fa-circle-check' : 'fa-circle-info'}`}></i>
-          {notification.message}
+      <div className="hub-header">
+        <div className="header-info">
+          <h2>Career Scripts & Cheats</h2>
+          <p>Modify your career save with powerful league-wide scripts.</p>
         </div>
-      )}
+        {notification && (
+          <div className={`hub-notification ${notification.type}`}>
+            <i className={`fa-solid ${notification.type === 'success' ? 'fa-check-circle' : 'fa-info-circle'}`}></i>
+            {notification.message}
+          </div>
+        )}
+      </div>
 
       <div className="scripts-grid">
         {scripts.map(script => (
-          <div key={script.id} className="script-card">
-            <div className="script-icon" style={{ color: script.color, borderColor: script.color + '44' }}>
+          <div key={script.id} className="script-card" style={{ borderColor: `${script.color}40` }}>
+            <div className="script-icon" style={{ backgroundColor: `${script.color}20`, color: script.color }}>
               <i className={`fa-solid ${script.icon}`}></i>
             </div>
             <div className="script-info">
-              <h4>{script.title}</h4>
+              <h3>{script.title}</h3>
               <p>{script.description}</p>
+            </div>
+            <div className="script-actions">
               <button 
-                className="execute-button"
+                className={`execute-button ${script.type === 'toggle' ? (activeSave.scripts?.[script.id] ? 'active' : '') : ''}`}
                 onClick={script.action}
+                style={script.type === 'toggle' && activeSave.scripts?.[script.id] ? { backgroundColor: script.color, color: '#000' } : {}}
               >
-                <i className="fa-solid fa-bolt"></i> Execute
+                {script.type === 'toggle' ? (
+                  activeSave.scripts?.[script.id] ? (
+                    <><i className="fa-solid fa-toggle-on"></i> Enabled</>
+                  ) : (
+                    <><i className="fa-solid fa-toggle-off"></i> Disabled</>
+                  )
+                ) : (
+                  <><i className="fa-solid fa-bolt"></i> Execute</>
+                )}
               </button>
             </div>
           </div>

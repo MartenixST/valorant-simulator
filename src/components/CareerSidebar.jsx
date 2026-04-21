@@ -1,7 +1,7 @@
 import React from 'react';
 import { teams, teamLogos } from '../teams.js'; // Import teams and teamLogos
 import SimWeekButton from './SimWeekButton.jsx';
-import { startTutorialFlow } from '../tutorial.js';
+import { startTutorialFlow } from '../tutorial-enhanced.js';
 
 const CareerSidebar = ({ activeSection, handleNavClick, activeSave, setActiveSave }) => {
   const handleExport = (e) => {
@@ -48,14 +48,20 @@ const CareerSidebar = ({ activeSection, handleNavClick, activeSave, setActiveSav
         {activeSave && activeSave.week === 4 && (
           <a href="#" onClick={() => handleNavClick('kickoff')} data-tour="kickoff" className={`nav-item kickoff-button ${activeSection === 'kickoff' ? 'active' : ''}`}><i className="fa-solid fa-play icon" style={{ marginRight: '8px' }}></i>Kickoff</a>
         )}
-        {activeSave && activeSave.week >= 5 && activeSave.week <= 11 && (
+        {activeSave && activeSave.week >= 6 && activeSave.week <= 11 && (
           <a href="#" onClick={() => handleNavClick('masters-bangkok')} data-tour="masters-bangkok" className={`nav-item masters-button ${activeSection === 'masters-bangkok' ? 'active' : ''}`}><i className="fa-solid fa-earth-asia icon" style={{ marginRight: '8px' }}></i>Masters Bangkok</a>
         )}
-        {activeSave && activeSave.week >= 12 && activeSave.week <= 16 && (
+        {activeSave && activeSave.week >= 13 && activeSave.week <= 23 && (
           <a href="#" onClick={() => handleNavClick('regular-season')} data-tour="regular-season" className={`nav-item regular-season-button ${activeSection === 'regular-season' ? 'active' : ''}`}><i className="fa-solid fa-calendar-week icon" style={{ marginRight: '8px' }}></i>Regional Groups</a>
         )}
-        {activeSave && activeSave.week >= 17 && (
-          <a href="#" onClick={() => handleNavClick('regular-season')} data-tour="regular-season-playoffs" className={`nav-item regular-season-button ${activeSection === 'regular-season' ? 'active' : ''}`}><i className="fa-solid fa-trophy icon" style={{ marginRight: '8px' }}></i>Regional Playoffs</a>
+        {activeSave && activeSave.week === 24 && (
+          <a href="#" onClick={() => handleNavClick('masters-tokyo')} data-tour="masters-tokyo" className={`nav-item masters-button ${activeSection === 'masters-tokyo' ? 'active' : ''}`}><i className="fa-solid fa-earth-asia icon" style={{ marginRight: '8px' }}></i>Masters Tokyo (Prep)</a>
+        )}
+        {activeSave && activeSave.week >= 25 && activeSave.week <= 32 && (
+          <a href="#" onClick={() => handleNavClick('masters-tokyo')} data-tour="masters-tokyo" className={`nav-item masters-button ${activeSection === 'masters-tokyo' ? 'active' : ''}`}><i className="fa-solid fa-earth-asia icon" style={{ marginRight: '8px' }}></i>Masters Tokyo</a>
+        )}
+        {activeSave && activeSave.week >= 36 && activeSave.week <= 43 && (
+          <a href="#" onClick={() => handleNavClick('champions')} data-tour="champions" className={`nav-item champions-button ${activeSection === 'champions' ? 'active' : ''}`}><i className="fa-solid fa-crown icon" style={{ marginRight: '8px' }}></i>Champions</a>
         )}
         <a href="#" onClick={() => handleNavClick('career-dashboard')} data-tour="dashboard" className={`nav-item ${activeSection === 'career-dashboard' ? 'active' : ''}`}><i className="fa-solid fa-house icon" style={{ marginRight: '8px' }}></i>My Office</a>
         <a href="#" onClick={() => handleNavClick('career-calendar')} data-tour="calendar" className={`nav-item ${activeSection === 'career-calendar' ? 'active' : ''}`}><i className="fa-solid fa-calendar-days icon" style={{ marginRight: '8px' }}></i>Calendar</a>

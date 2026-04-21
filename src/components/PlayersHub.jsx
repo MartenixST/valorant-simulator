@@ -257,13 +257,25 @@ const PlayersHub = ({ activeSave, setActiveSave }) => {
             };
 
             // Add notification/message to inbox
+            const playerRole = player.role || 'Flex';
+            const playerACS = player.acs || player.stats?.acs || Math.round((player.aim + player.gameSense + player.mechanics) / 3) || 200;
+            const playerOverall = player.overall || Math.round((player.aim + player.gameSense + player.mechanics + player.leadership + player.communication) / 5) || 75;
+            
             const newMessage = {
                 id: Date.now() + Math.random().toString(36).substr(2, 9),
                 sender: "Management",
-                subject: "New Player Signed",
-                body: `We have successfully signed ${player.name} to the roster as a ${myTeamPlayers.length >= 5 ? 'substitute' : 'starter'}.`,
+                subject: "✨ NEW PLAYER SIGNED",
+                body: `We have successfully signed ${player.name} to the roster as a ${myTeamPlayers.length >= 5 ? 'substitute' : 'starter'}.\n\nWelcome to the team!`,
                 date: "Just now",
-                read: false
+                read: false,
+                playerData: {
+                    name: player.name,
+                    nickname: player.gamertag || player.nickname || player.name?.toLowerCase().replace(/\s/g, ''),
+                    role: playerRole,
+                    overall: playerOverall,
+                    acs: playerACS,
+                    salary: player.salary || player.marketValue || 50000
+                }
             };
             
             updatedSave.inbox = [newMessage, ...newInboxMessages, ...(updatedSave.inbox || [])];
@@ -504,7 +516,13 @@ const PlayersHub = ({ activeSave, setActiveSave }) => {
                     <td className="player-list-name">
                         <div className="flex items-center gap-2">
                             <span className={`expand-icon ${isExpanded ? 'rotated' : ''}`}>▶</span>
-                            <div>
+                            <div 
+                                className="cursor-pointer hover:text-[#ff4655] transition-colors"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    window.dispatchEvent(new CustomEvent('open-player-page', { detail: { playerId: player.id } }));
+                                }}
+                            >
                                 <div className="flex items-center gap-2">
                                     <strong>{player.name || player.gamertag}</strong>
                                     {player.isIGL && (
@@ -531,11 +549,17 @@ const PlayersHub = ({ activeSave, setActiveSave }) => {
                     <td>{player.age || 18}</td>
                     <td>
                           {team ? (
-                               <div className="flex items-center gap-2">
+                               <div 
+                                   className="flex items-center gap-2 cursor-pointer hover:text-[#ff4655] transition-colors group"
+                                   onClick={(e) => {
+                                       e.stopPropagation();
+                                       window.dispatchEvent(new CustomEvent('open-team-modal', { detail: { teamName: team.name } }));
+                                   }}
+                               >
                                    <div className="flex-shrink-0 w-6 flex justify-center items-center">
-                                       {teamLogos[team.name] && <img src={teamLogos[team.name]} alt="" className="table-team-logo" />}
+                                       {teamLogos[team.name] && <img src={teamLogos[team.name]} alt="" className="table-team-logo group-hover:scale-110 transition-transform" />}
                                    </div>
-                                   <span className="text-xs uppercase font-bold text-gray-400 tracking-wider leading-none">{team.name}</span>
+                                   <span className="text-xs uppercase font-bold text-gray-400 tracking-wider leading-none group-hover:text-[#ff4655]">{team.name}</span>
                                </div>
                            ) : (
                               <span className="text-xs uppercase font-bold text-gray-600 italic">Free Agent</span>

@@ -262,10 +262,18 @@ const StatsHub = ({ activeSave }) => {
               filteredStats.map((p, index) => (
                 <tr key={p.id} className="animated-in" style={{ animationDelay: `${index * 0.05}s` }}>
                   <td className="text-center" style={{ opacity: 0.5, fontSize: '12px' }}>{index + 1}</td>
-                  <td className="player-name-cell">{p.name}</td>
-                  <td className="team-cell">
+                  <td 
+                    className="player-name-cell cursor-pointer hover:text-[#ff4655] transition-colors"
+                    onClick={() => window.dispatchEvent(new CustomEvent('open-player-page', { detail: { playerId: p.id } }))}
+                  >
+                    {p.name}
+                  </td>
+                  <td 
+                    className="team-cell cursor-pointer hover:text-[#ff4655] transition-colors group"
+                    onClick={() => window.dispatchEvent(new CustomEvent('open-team-modal', { detail: { teamName: p.teamName } }))}
+                  >
                     <div className="team-info-mini">
-                      <img src={getTeamLogo(p.teamName)} alt="" className="mini-logo" />
+                      <img src={getTeamLogo(p.teamName)} alt="" className="mini-logo group-hover:scale-110 transition-transform" />
                       <span>{p.teamName}</span>
                     </div>
                   </td>
