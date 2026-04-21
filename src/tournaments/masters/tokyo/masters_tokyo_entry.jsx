@@ -5,6 +5,10 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log('Masters Tokyo entry point loaded');
     const activeSave = loadCareer();
     
+    console.log('Masters Tokyo - loaded save:', activeSave ? 'Found save' : 'No save');
+    console.log('Masters Tokyo - mastersTokyoState:', activeSave?.mastersTokyoState ? 'Found state' : 'No state');
+    console.log('Masters Tokyo - week:', activeSave?.week);
+    
     if (activeSave) {
         renderMastersTokyo(activeSave);
     } else {

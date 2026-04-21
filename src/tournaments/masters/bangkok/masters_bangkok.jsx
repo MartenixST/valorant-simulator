@@ -109,6 +109,18 @@ function createMatchBox(team1, team2, winner, playerTeam, id, bestOf, isGrandFin
       typeLabel.style.textAlign = 'center';
       typeLabel.textContent = matchTypeLabel;
       box.insertBefore(typeLabel, simBtn);
+      
+      // Add locked message for GF and 3rd Place when not playable
+      if (isPlayable === false && team1 && team1 !== 'TBD' && team2 && team2 !== 'TBD') {
+          const lockedLabel = document.createElement('div');
+          lockedLabel.style.fontSize = '0.65em';
+          lockedLabel.style.color = '#ff6b6b';
+          lockedLabel.style.marginTop = '3px';
+          lockedLabel.style.textAlign = 'center';
+          lockedLabel.style.fontWeight = '600';
+          lockedLabel.textContent = '🔒 Week 11';
+          box.insertBefore(lockedLabel, simBtn);
+      }
   }
 
   const playBtn = document.createElement('button');
@@ -648,16 +660,17 @@ export function renderMasters(activeSave) {
     finalCell.style.justifyContent = 'center'; // Center vertically relative to Semis height
     finalCell.style.height = '100%'; // Ensure full height for centering
 
-    // Logic for 3rd place finish check (needed for GF unlock)
+    // Logic for 3rd place finish check and week lock (GF and 3rd Place locked until Week 11)
     const thirdId = st.playoffs.thirdPlace;
     const thirdMatch = thirdId ? st.playoffs.matches[thirdId] : null;
     const isThirdPlaceFinished = thirdMatch && thirdMatch.winner;
+    const isWeek11OrLater = activeSave.week >= 11;
 
     if (st.playoffs.grandFinal) {
         const finalMatch = { 
             id: st.playoffs.grandFinal, 
             ...st.playoffs.matches[st.playoffs.grandFinal],
-            isPlayable: !!isThirdPlaceFinished
+            isPlayable: isWeek11OrLater && !!isThirdPlaceFinished
         };
         finalCell.appendChild(createRound('Grand Final', [finalMatch], st, playerTeam));
     } else {
@@ -673,7 +686,11 @@ export function renderMasters(activeSave) {
     thirdPlaceCell.style.marginTop = '-10px'; // Pull up slightly to reduce gap visual if needed
 
     if (st.playoffs.thirdPlace) {
-        const tpMatch = { id: st.playoffs.thirdPlace, ...st.playoffs.matches[st.playoffs.thirdPlace] };
+        const tpMatch = { 
+            id: st.playoffs.thirdPlace, 
+            ...st.playoffs.matches[st.playoffs.thirdPlace],
+            isPlayable: isWeek11OrLater
+        };
         thirdPlaceCell.appendChild(createRound('3rd Place Match', [tpMatch], st, playerTeam));
     } else {
         const emptyRound = createRound('3rd Place Match', [{id:null, team1:'TBD', team2:'TBD', isThirdPlace:true, bestOf:3}], st, playerTeam);
