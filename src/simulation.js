@@ -206,6 +206,34 @@ export class PlayerRating {
     }
 }
 
+export class Strategy {
+    constructor(playstyle, focus, eco, activity) {
+        this.playstyle = playstyle || 'balanced';
+        this.focus = focus || 'standard';
+        this.eco = eco || 'standard';
+        this.activity = activity || 'standard';
+    }
+
+    static generateRandom() {
+        const playstyles = ['balanced', 'aggressive', 'defensive', 'tactical'];
+        const focuses = ['standard', 'entry', 'map-control', 'tactical'];
+        const ecos = ['standard', 'stingy', 'aggressive-buy'];
+        const activities = ['standard', 'scrim', 'practice', 'bonding'];
+
+        return new Strategy(
+            playstyles[Math.floor(Math.random() * playstyles.length)],
+            focuses[Math.floor(Math.random() * focuses.length)],
+            ecos[Math.floor(Math.random() * ecos.length)],
+            activities[Math.floor(Math.random() * activities.length)]
+        );
+    }
+
+    static fromJSON(data) {
+        if (!data) return new Strategy();
+        return new Strategy(data.playstyle, data.focus, data.eco, data.activity);
+    }
+}
+
 export const ROLES = {
     DUELIST: "Duelist",
     INITIATOR: "Initiator",
@@ -256,6 +284,20 @@ export class Player {
         this.name = name || Player.generateGamertag();
         this.gamertag = this.name;
         this.role = role || this.getRandomRole();
+        this.secondaryRole = this.getRandomSecondaryRole();
+        
+        // Role Proficiencies
+        this.roleProficiencies = [this.role];
+        this.roleExperience = {
+            [ROLES.DUELIST]: 0,
+            [ROLES.INITIATOR]: 0,
+            [ROLES.CONTROLLER]: 0,
+            [ROLES.SENTINEL]: 0,
+            [ROLES.FLEX]: 0
+        };
+        // Initial experience for starting role
+        this.roleExperience[this.role] = 100; 
+
         this.isIGL = false;
         this.rating = (ratings instanceof PlayerRating) ? ratings : new PlayerRating(
             ratings?.aim, ratings?.movement, ratings?.gameSense, 
@@ -329,6 +371,17 @@ export class Player {
         return roles[Math.floor(Math.random() * roles.length)];
     }
     
+    getRandomSecondaryRole() {
+        const roles = Object.values(ROLES);
+        // Filter out the primary role
+        const availableRoles = roles.filter(r => r !== this.role);
+        // 30% chance to have a secondary role
+        if (Math.random() < 0.3) {
+            return availableRoles[Math.floor(Math.random() * availableRoles.length)];
+        }
+        return null;
+    }
+    
     // Generate a random gamertag
     static generateGamertag() {
         const prefixes = ["Toxic", "Pro", "Aim", "Clutch", "Ace", "Ninja", "Ghost", "Shadow", "Viper", "Phoenix"];
@@ -361,6 +414,23 @@ export class Player {
             return true;
         }
         return false;
+    }
+
+    // Role development logic
+    developRoles() {
+        if (!this.role) return;
+        
+        // Gain experience in current assigned role
+        // Takes about 4-6 weeks of play to master a new role (threshold 100)
+        const expGain = 15 + Math.floor(Math.random() * 10);
+        this.roleExperience[this.role] = Math.min(100, (this.roleExperience[this.role] || 0) + expGain);
+        
+        // If reached 100% experience, add to proficiencies
+        if (this.roleExperience[this.role] >= 100 && !this.roleProficiencies.includes(this.role)) {
+            this.roleProficiencies.push(this.role);
+            return { learned: this.role };
+        }
+        return null;
     }
 
     static fromJSON(data) {
@@ -408,6 +478,11 @@ export class Player {
         // Preserve team name if present
         if (data.team) player.team = data.team;
         
+        // Restore Role Data
+        player.role = data.role || player.role;
+        player.secondaryRole = data.secondaryRole || null;
+        player.roleProficiencies = data.roleProficiencies || [player.role];
+
         // Ensure ALL properties from data are copied to the instance
         // This is critical for preserving nationality, age, etc.
         Object.keys(data).forEach(key => {
@@ -792,8 +867,31 @@ export class RoundSimulator {
                 const defender = aliveDefenders[Math.floor(Math.random() * aliveDefenders.length)];
                 
                 // Calculate win probability for attacker in this specific duel
-                const atkPower = attacker.overall + (attacker.weapon.type === 'Rifle' ? 5 : 0);
-                const defPower = defender.overall + (defender.weapon.type === 'Rifle' ? 5 : 0);
+                let atkPower = attacker.overall + (attacker.weapon.type === 'Rifle' ? 5 : 0);
+                let defPower = defender.overall + (defender.weapon.type === 'Rifle' ? 5 : 0);
+
+                // --- Strategy Modifiers ---
+                const atkStrat = this.strategies[this.attackers.id] || { playstyle: 'balanced', focus: 'standard' };
+                const defStrat = this.strategies[this.defenders.id] || { playstyle: 'balanced', focus: 'standard' };
+
+                // Playstyle
+                if (atkStrat.playstyle === 'aggressive') atkPower *= 1.05;
+                if (atkStrat.playstyle === 'defensive') atkPower *= 0.95;
+                if (defStrat.playstyle === 'defensive') defPower *= 1.05;
+                if (defStrat.playstyle === 'aggressive') defPower *= 0.95;
+
+                // Focus
+                if (atkStrat.focus === 'entry') atkPower *= 1.03;
+                if (defStrat.focus === 'map-control') defPower *= 1.03;
+
+                // Tactical (higher variance)
+                if (atkStrat.playstyle === 'tactical' || atkStrat.focus === 'tactical') {
+                    atkPower *= (0.9 + Math.random() * 0.2); // +/- 10%
+                }
+                if (defStrat.playstyle === 'tactical' || defStrat.focus === 'tactical') {
+                    defPower *= (0.9 + Math.random() * 0.2);
+                }
+                
                 const atkWinProb = atkPower / (atkPower + defPower);
                 
                 const attackerWinsDuel = Math.random() < atkWinProb;

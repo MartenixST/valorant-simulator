@@ -78,16 +78,23 @@ export function displayMatchDetails() {
     // Prioritize URL parameter, then career save, then fallback to 'TBD'
     playerTeamName = urlPlayerTeam || (activeSave ? activeSave.team : 'TBD');
     
-    // Load strategies if this is a player team
+    const t1Data = getSafeTeamByName(team1Name);
+    const t2Data = getSafeTeamByName(team2Name);
+
+    // Load strategies for both teams from activeSave
     if (activeSave?.strategies) {
-        if (team1Name === activeSave.team) teamStrategies[t1Data.id] = activeSave.strategies;
-        if (team2Name === activeSave.team) teamStrategies[t2Data.id] = activeSave.strategies;
+        // If strategies is the old object directly, it's the player team's strategy
+        if (activeSave.strategies.playstyle) {
+            if (team1Name === activeSave.team) teamStrategies[t1Data.id] = activeSave.strategies;
+            if (team2Name === activeSave.team) teamStrategies[t2Data.id] = activeSave.strategies;
+        } else {
+            // New structure: strategies is an object of objects
+            if (activeSave.strategies[String(t1Data.id)]) teamStrategies[t1Data.id] = activeSave.strategies[String(t1Data.id)];
+            if (activeSave.strategies[String(t2Data.id)]) teamStrategies[t2Data.id] = activeSave.strategies[String(t2Data.id)];
+        }
     }
 
     console.log(`Match Simulation initialized: MatchID=${matchId}, PlayerTeam=${playerTeamName}, Team1=${team1Name}, Team2=${team2Name}`);
-
-    const t1Data = getSafeTeamByName(team1Name);
-    const t2Data = getSafeTeamByName(team2Name);
 
     console.log(`t1Data for ${team1Name}:`, t1Data);
     console.log(`t2Data for ${team2Name}:`, t2Data);
@@ -1185,9 +1192,51 @@ function saveMatchResult(winnerTeam) {
                     if (!activeSave.championshipPoints) activeSave.championshipPoints = {};
                     activeSave.championshipPoints[winnerName] = (activeSave.championshipPoints[winnerName] || 0) + 3;
                 }
+            } else if (matchId.startsWith('CHAMP-')) {
+                // Champions 2025 match handling
+                const st = activeSave.championsState;
+                if (st && st.groupMatches) {
+                    // Find and update the group match
+                    const match = st.groupMatches[matchId];
+                    if (match) {
+                        match.winner = winnerName;
+                        match.loser = loserName;
+                        match.score = score;
+                        match.playerStats = result.playerStats || null;
+                        
+                        // Update team stats
+                        if (st.teamStats) {
+                            if (st.teamStats[winnerName]) {
+                                st.teamStats[winnerName].wins++;
+                                st.teamStats[winnerName].points += 3;
+                            }
+                            if (st.teamStats[loserName]) {
+                                st.teamStats[loserName].losses++;
+                            }
+                        }
+                        
+                        // Resolve bracket progression for dependent matches
+                        resolveChampionsBracket(st, matchId);
+                        
+                        console.log(`Champions match ${matchId} completed:`, winnerName, "wins");
+                    }
+                }
+                
+                // Save career with Champions update
+                saveCareer(activeSave);
+                
+                // Notify parent
+                try {
+                    window.parent.dispatchEvent(new CustomEvent('careerUpdate', { detail: activeSave }));
+                    window.parent.postMessage({ type: 'careerUpdate', data: activeSave }, window.location.origin);
+                } catch (e) {
+                    console.warn("Failed to notify parent of Champions update:", e);
+                }
+                
+                return; // Skip default championship points for Champions
             }
             
-            // Add championship points for any match win
+            // Add championship points for any match win (Kickoff/Masters)
             if (!activeSave.championshipPoints) activeSave.championshipPoints = {};
             activeSave.championshipPoints[winnerName] = (activeSave.championshipPoints[winnerName] || 0) + 1;
             
@@ -1202,6 +1251,37 @@ function saveMatchResult(winnerTeam) {
             }
         }
     }
+}
+
+// Helper to resolve Champions bracket progression
+function resolveChampionsBracket(state, completedMatchId) {
+    const matches = state.groupMatches;
+    if (!matches) return;
+    
+    // Find matches that depend on the completed match
+    Object.keys(matches).forEach(matchId => {
+        const match = matches[matchId];
+        if (match.dependsOn && !match.winner) {
+            const deps = match.dependsOn.map(id => matches[id]).filter(Boolean);
+            
+            if (deps.every(d => d.winner)) {
+                if (matchId.includes('WBF')) {
+                    // WB Final: Winners of WB1 and WB2
+                    match.team1 = matches[match.dependsOn[0]]?.winner;
+                    match.team2 = matches[match.dependsOn[1]]?.winner;
+                } else if (matchId.includes('LB1')) {
+                    // LB Round 1: Losers of WB1 and WB2
+                    match.team1 = matches[match.dependsOn[0]]?.loser;
+                    match.team2 = matches[match.dependsOn[1]]?.loser;
+                } else if (matchId.includes('LBF')) {
+                    // LB Final: Winner of LB1 vs Loser of WBF
+                    match.team1 = matches[match.dependsOn[1]]?.winner; // Winner of LB1
+                    match.team2 = matches[match.dependsOn[0]]?.loser;  // Loser of WBF
+                }
+                console.log(`Champions bracket resolved: ${matchId} -> ${match.team1} vs ${match.team2}`);
+            }
+        }
+    });
 }
 
 function loadMatchState() {
@@ -1520,6 +1600,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 window.location.href = 'masters_tokyo.html';
             } else if (tournament === 'regular_season') {
                 window.location.href = 'regular_season.html';
+            } else if (tournament === 'champions') {
+                window.location.href = 'champions.html';
             } else {
                 window.location.href = 'kickoff.html';
             }

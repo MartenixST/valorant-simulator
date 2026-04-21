@@ -144,6 +144,11 @@ export function generatePlayersForTeam(teamName, region, teamId, teamPower = 70)
     
     if (realTeamKey) {
         console.log(`Found ${realPlayers[realTeamKey].length} real players for ${teamName} (matched as ${realTeamKey})`);
+        
+        // Career mode: Add randomness so no team is guaranteed to dominate
+        // Each new career, real teams get different player performances
+        const careerVariance = () => Math.floor(Math.random() * 20) - 10; // -10 to +10 variance
+        
         realPlayers[realTeamKey].forEach((p, index) => {
             // Scale real player ratings (originally ~70-90) to our new 40-80 range
             // High ratings (75+) should be rare.
@@ -156,23 +161,32 @@ export function generatePlayersForTeam(teamName, region, teamId, teamPower = 70)
                 baseRating = 40 + (baseRating / 70) * 15;
             }
             
+            // Career mode balance: Add variance so any team can win
+            baseRating += careerVariance();
+            baseRating = Math.max(45, Math.min(85, baseRating)); // Keep within 45-85 range
+            
             // Limit elite players (75+)
             if (baseRating >= 75) {
                 if (!regionalEliteCount[region]) regionalEliteCount[region] = 0;
-                if (regionalEliteCount[region] >= 5) {
-                    baseRating = 74; // Cap at 74 if elite slots full
+                if (regionalEliteCount[region] >= 8) { // Increased from 5 to 8 for more variety
+                    baseRating = 70 + Math.floor(Math.random() * 5); // 70-74 if elite slots full
                 } else {
                     regionalEliteCount[region]++;
                 }
             }
 
-            const ratings = PlayerRating.generateRandom(baseRating, 10);
+            // Increased variance for more unpredictable careers
+            const ratings = PlayerRating.generateRandom(baseRating, 15);
             // Use p.name as both name and gamertag for real players
             const player = new Player(p.name, p.role, ratings, normalizedTeamId, p.nationality, p.age);
             player.gamertag = p.name;
             player.name = p.name;
             // Also set team name for better filtering
             player.team = teamName;
+            
+            // Set all 5 players as starters (isStarter = true, status = 'active')
+            player.isStarter = true;
+            player.status = 'active';
             
             // Set first player as IGL by default for real teams if they have a dedicated IGL role (not in our ROLES anymore but maybe in realPlayers data)
             // or just pick the first one
@@ -193,6 +207,9 @@ export function generatePlayersForTeam(teamName, region, teamId, teamPower = 70)
                 const player = generatePlayer(region, role, baseRating);
                 player.teamId = normalizedTeamId;
                 player.team = teamName;
+                // Set as starter
+                player.isStarter = true;
+                player.status = 'active';
                 teamPlayers.push(player);
             }
         }
@@ -201,22 +218,36 @@ export function generatePlayersForTeam(teamName, region, teamId, teamPower = 70)
     } else {
         console.log(`No real players found for ${teamName}, generating randoms...`);
         const roles = ["Duelist", "Duelist", "Initiator", "Controller", "Sentinel"];
+        
+        // Career mode: Give random teams a chance to be competitive
+        // Random team power level for this career (45-75 range)
+        const teamCareerPower = Math.floor(Math.random() * 30) + 45;
+        
         roles.forEach((role, index) => {
-            // Randomly generated teams should generally be lower rated unless they get an elite player
-            let baseRating = Math.floor(Math.random() * 20) + 45; // 45-65 base for random teams
+            // Randomly generated teams now have competitive ratings
+            // Base range: 50-70 (up from 45-65) with potential for elites
+            let baseRating = Math.floor(Math.random() * 25) + 50; // 50-75 base for random teams
             
-            // Check for elite slot
-            if (Math.random() < 0.05) { // 5% chance for an elite player in a random team
+            // Check for elite slot (increased chance to 10%)
+            if (Math.random() < 0.10) { // 10% chance for an elite player in a random team
                 if (!regionalEliteCount[region]) regionalEliteCount[region] = 0;
-                if (regionalEliteCount[region] < 5) {
-                    baseRating = Math.floor(Math.random() * 6) + 75; // 75-80
+                if (regionalEliteCount[region] < 8) {
+                    baseRating = Math.floor(Math.random() * 10) + 72; // 72-82
                     regionalEliteCount[region]++;
                 }
+            }
+            
+            // Ensure at least one good player per random team
+            if (index === 0 && baseRating < 65) {
+                baseRating = 65 + Math.floor(Math.random() * 10); // First player at least 65-74
             }
 
             const player = generatePlayer(region, role, baseRating);
             player.teamId = normalizedTeamId;
             player.team = teamName;
+            // Set all 5 as starters
+            player.isStarter = true;
+            player.status = 'active';
             if (index === 0) player.isIGL = true; // First player is IGL
             teamPlayers.push(player);
         });
