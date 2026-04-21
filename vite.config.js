@@ -20,6 +20,7 @@ export default defineConfig({
         match_simulation: 'match_simulation.html',
         simulation: 'simulation.html',
         standings: 'standings.html',
+        champions: 'champions.html',
       }
     }
   },
